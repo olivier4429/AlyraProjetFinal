@@ -18,12 +18,13 @@ contract ReputationBadge is ERC721, Ownable {
     string private imageURI;
 
     /// @notice Metatdonnées du NFT de réputation.
+    /// @dev Variable packing pour passer de 5 à 1 slot de stockage (256 bits exactement).
     struct AuditorData {
-        uint256 reputationScore;
-        uint256 totalAudits;
-        uint256 totalExploits;
-        uint256 registrationDate;
-        bool isActive;
+        uint120 registrationDate; // max = 1.3e36 (année 4.2e21, bien suffisant)
+        uint64 reputationScore; // max = 18,446,744,073,709,551,615 (largement suffisant pour score)
+        uint32 totalAudits; // max = 4,294,967,295 (audits par auditeur)
+        uint32 totalExploits; // max = 4,294,967,295 (exploits par auditeur)
+        bool isActive; //1 bit
     }
 
     /// @notice Mapper le tokenId et les metadata de l'auditeur : score de réputation, nb audits, nb exploits subits, date d'obtention du badge, etc.
@@ -88,9 +89,9 @@ contract ReputationBadge is ERC721, Ownable {
         // Initialisation des metadata
         _auditorData[tokenId] = AuditorData({
             reputationScore: 0,
+            registrationDate: uint120(block.timestamp),
             totalAudits: 0,
             totalExploits: 0,
-            registrationDate: block.timestamp,
             isActive: true
         });
 
@@ -151,13 +152,17 @@ contract ReputationBadge is ERC721, Ownable {
                                 Strings.toString(metadata.reputationScore),
                                 "},",
                                 '{"trait_type":"Total Audits","value":',
-                                Strings.toString(metadata.totalAudits),
+                                Strings.toString(uint256(metadata.totalAudits)),
                                 "},",
                                 '{"trait_type":"Total Exploits","value":',
-                                Strings.toString(metadata.totalExploits),
+                                Strings.toString(
+                                    uint256(metadata.totalExploits)
+                                ),
                                 "},",
-                                '{"trait_type":"Registration Date","value":',
-                                Strings.toString(metadata.registrationDate),
+                                '{"trait_type":"Registration Date","display_type":"date","value":',
+                                Strings.toString(
+                                    uint256(metadata.registrationDate)
+                                ),
                                 "},",
                                 '{"trait_type":"Active","value":',
                                 metadata.isActive ? "true" : "false",
@@ -180,6 +185,15 @@ contract ReputationBadge is ERC721, Ownable {
         return tokenCounter;
     }
 
+    /// @notice Retourne les données de réputation d'un auditeur par adresse
+    function getAuditorData(
+        address auditor
+    ) external view returns (AuditorData memory) {
+        uint256 tokenId = tokenIdOf[auditor];
+        if (tokenId == 0) revert ReputationBadge__TokenDoesNotExist();
+        return _auditorData[tokenId];
+    }
+
     //----------------------------------------------------------
     //Fonctions de calcu lde la réputation
     //----------------------------------------------------------
@@ -191,10 +205,8 @@ contract ReputationBadge is ERC721, Ownable {
     ) external onlyRegistry {
         AuditorData storage data = _auditorData[tokenId];
         data.totalAudits += 1;
-        data.reputationScore =
-            data.reputationScore +
-            Math.log10(guaranteeAmount) *
-            10;
+        uint256 gain = Math.log10(guaranteeAmount) * 10;
+        data.reputationScore = uint64(uint256(data.reputationScore) + gain);
         emit MetadataUpdate(tokenId); // EIP-4906 : signaler que les metadata ont été mises à jour
     }
 
@@ -209,8 +221,8 @@ contract ReputationBadge is ERC721, Ownable {
         uint256 penalty = Math.log10(guaranteeAmount) * 10;
 
         // Plancher à 0 — pas de underflow possible
-        data.reputationScore = data.reputationScore > penalty
-            ? data.reputationScore - penalty
+        data.reputationScore = uint256(data.reputationScore) > penalty
+            ? uint64(uint256(data.reputationScore) - penalty)
             : 0;
         emit MetadataUpdate(tokenId); // EIP-4906 : signaler que les metadata ont été mises à jour
     }
