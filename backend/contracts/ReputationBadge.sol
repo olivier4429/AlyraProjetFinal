@@ -166,7 +166,7 @@ contract ReputationBadge is ERC721, Ownable {
                                 "},",
                                 '{"trait_type":"Active","value":',
                                 metadata.isActive ? "true" : "false",
-                                "},",
+                                "}",
                                 '], "image":"',
                                 getSVG(),
                                 '"}'
@@ -201,11 +201,12 @@ contract ReputationBadge is ERC721, Ownable {
     ///@notice Ces fonctions sont appelées par la registry après chaque audit pour mettre à jour les metadata du badge de réputation de l'auditeur
     function incAudits(
         uint256 tokenId,
-        uint256 guaranteeAmount
+        uint256 guaranteeAmount //  100_000_000 => 100 USDC en unités ERC-20
     ) external onlyRegistry {
         AuditorData storage data = _auditorData[tokenId];
         data.totalAudits += 1;
-        uint256 gain = Math.log10(guaranteeAmount) * 10;
+        uint256 guaranteeInUsdc = guaranteeAmount / 1e6; // → 100 USDC
+        uint256 gain = Math.log10(guaranteeInUsdc) * 10;
         data.reputationScore = uint64(uint256(data.reputationScore) + gain);
         emit MetadataUpdate(tokenId); // EIP-4906 : signaler que les metadata ont été mises à jour
     }
@@ -213,12 +214,12 @@ contract ReputationBadge is ERC721, Ownable {
     /// @notice Incrémente le nombre d'exploits subits par l'auditeur et met à jour son score de réputation en conséquence
     function incExploits(
         uint256 tokenId,
-        uint256 guaranteeAmount
+        uint256 guaranteeAmount //  100_000_000 => 100 USDC en unités ERC-20
     ) external onlyRegistry {
         AuditorData storage data = _auditorData[tokenId];
         data.totalExploits += 1;
-
-        uint256 penalty = Math.log10(guaranteeAmount) * 10;
+        uint256 guaranteeInUsdc = guaranteeAmount / 1e6; // → 100 USDC
+        uint256 penalty = Math.log10(guaranteeInUsdc) * 10;
 
         // Plancher à 0 — pas de underflow possible
         data.reputationScore = uint256(data.reputationScore) > penalty
