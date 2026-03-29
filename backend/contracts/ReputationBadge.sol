@@ -109,7 +109,7 @@ contract ReputationBadge is ERC721, Ownable {
      *@return Une URI d'image encodée en base64.
      */
     function svgToImageURI(
-        string memory svg
+        string memory /*pas de calldata car cette fonction est appelée par le constructor et il ne peut pas avoir un calldata en parametre*/ svg
     ) public pure returns (string memory) {
         string memory baseURL = "data:image/svg+xml;base64,";
         string memory svgBase64Encoded = Base64.encode(
