@@ -11,6 +11,8 @@ import "./ReputationBadge.sol";
 /// @notice Contrat principal du protocole AuditRegistry.
 ///         Gère l'inscription des auditeurs, le dépôt des audits,
 ///         la validation, et le signalement d'exploits.
+/// @dev Ce contrat interagit avec ReputationBadge, AuditEscrow, DAOVoting.
+///      Il utilise des USDC 6 digits. Attention : ETH est sur 18 digits.
 contract AuditRegistry is Ownable, ReentrancyGuard {
     /// @notice Etat de l'audit
     enum AuditStatus {
@@ -27,25 +29,32 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     /// @notice temps donné à l'auditeur pour valider l'audit après le dépôt. Passé ce délai, le demandeur peut réclamer un remboursement.
     uint256 public constant VALIDATION_TIMEOUT = 10 days;
 
+    /// @notice Struct représentant un audit
+    /// @dev Pour le storage packing, on passe les dates de uint256 à uint40 ( année 36812 c'est assez loin)
     struct Audit {
-        address auditor; //Adresse de l'auditeur désigné
-        address requester; //Adresse du demandeur de l'audit
-        address auditedContractAddress; //Contrat audité
-        bytes32 reportCID; //CID IPFS du rapport d'audit
-        AuditStatus status; //Etat de l'audit
-        uint256 amount; //Montant total de l'audit en USDC
-        uint256 guaranteeEnd; //date de fin de la retenue de garantie
-        uint256 depositedAt; //timestamp du dépôt de l'audit (ajouté pour gérer le timeout de validation)
+        //Slot 0 : 240 bits
+        address auditor; //160 bits Adresse de l'auditeur désigné
+        uint40 guaranteeEnd; //40 bits date de fin de la retenue de garantie
+        uint40 depositedAt; //40 bits timestamp du dépôt de l'audit (ajouté pour gérer le timeout de validation)
+        //Slot 1 : 256 bits
+        bytes32 reportCID; //256 bits CID IPFS du rapport d'audit
+        //Slot 2 : 256 bits
+        uint256 amount; //256 bits Montant total de l'audit en USDC
+        //slot 3 : 248 bits
+        address auditedContractAddress; //160 bits Contrat audité
+        AuditStatus status; //8 bits Etat de l'audit
+        //Slot 4 : 160 bits
+        address requester; //160 bits Adresse du demandeur de l'audit
     }
 
-    /// @notice Contrat ReputationBadge — source de vérité pour les auditeurs
+    /// @notice Contrat ReputationBadge : source de vérité pour les auditeurs
     /// @dev immutable parce qu'on ne veut qu'elle puisse être changée apres déploiement et pour économiser du gas car elle est inliné dans le code et n'occupe de storage.
     ReputationBadge public immutable reputationBadge;
 
     /// @notice Token USDC utilisé pour les paiements
     IERC20 public immutable usdc;
 
-    /// @notice Adresse du contrat Treasury : Reçoit les frais du protocole — 5% de chaque dépôt d'audit, prélevés immédiatement. C'est la "caisse" du protocole, retirable uniquement par le owner.
+    /// @notice Adresse du contrat Treasury : Reçoit les frais du protocole : 5% de chaque dépôt d'audit, prélevés immédiatement. C'est la "caisse" du protocole, retirable uniquement par le owner.
     address public treasuryAddress;
 
     /// @notice Adresse du contrat AuditEscrow : Reçoit les fonds des audits validés et gère la retenue de garantie (30% du montant de l'audit) pendant la période de garantie.
@@ -64,7 +73,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     /// @dev RG-14 : 1 seul audit actif par paire
     mapping(address => mapping(address => bool)) public hasPendingAudit;
 
-    /// @notice Compteur d'audits — sert d'auditId
+    /// @notice Compteur d'audits : sert d'auditId
     uint256 public auditCount;
 
     // =========================================================================
@@ -187,7 +196,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     }
 
     // =========================================================================
-    // Phase 1 — Inscription auditeur
+    // Phase 1 : Inscription auditeur
     // =========================================================================
 
     /// @notice Inscrit un nouvel auditeur et lui mint un ReputationBadge
@@ -226,7 +235,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     }
 
     /// @notice Met à jour les spécialités d'un auditeur
-    /// @dev Les spécialités ne sont pas stockées on-chain — uniquement dans les events.
+    /// @dev Les spécialités ne sont pas stockées on-chain : uniquement dans les events.
     ///      La DApp indexe le dernier event AuditorSpecialtiesUpdated pour afficher
     ///      les spécialités courantes. L'historique complet reste consultable.
     /// @param specialties Nouvelle liste complète de spécialités (remplace l'ancienne)
@@ -245,7 +254,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     }
 
     // =========================================================================
-    // Phase 4 — Dépôt
+    // Phase 4 : Dépôt
     // =========================================================================
 
     /// @notice Dépose le montant d'un audit et le rapport IPFS.
@@ -289,7 +298,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
             status: AuditStatus.PENDING,
             amount: escrowAmount,
             guaranteeEnd: 0,
-            depositedAt: block.timestamp
+            depositedAt: uint40(block.timestamp)
         });
 
         hasPendingAudit[msg.sender][auditor] = true;
@@ -320,7 +329,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     }
 
     // =========================================================================
-    // Phase 5 — Validation
+    // Phase 5 : Validation
     // =========================================================================
 
     /// @notice Valide un audit et déclenche la ventilation 70/30
@@ -352,7 +361,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
         */
         // ============ EFFECTS ============
         audit.status = AuditStatus.VALIDATED;
-        audit.guaranteeEnd = block.timestamp + guaranteeDuration;
+        audit.guaranteeEnd = uint40(block.timestamp + guaranteeDuration);
 
         hasPendingAudit[audit.requester][audit.auditor] = false;
 
@@ -409,7 +418,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     }
 
     // =========================================================================
-    // Phase 6a — Signalement exploit
+    // Phase 6a : Signalement exploit
     // =========================================================================
 
     /// @notice Signale un exploit pendant la période de garantie. Seul le demandeur peut le faire et un seul exploit peut être signalé par audit.
@@ -417,7 +426,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     ///      RG-41 : uniquement pendant le timelock
     ///      RG-42 : 1 seul incident par audit
     /// @param auditId    Identifiant de l'audit
-    /// @param preuvesCID CID IPFS des preuves (optionnel — bytes32(0) si absent)
+    /// @param preuvesCID CID IPFS des preuves (optionnel : bytes32(0) si absent)
     function reportExploit(uint256 auditId, bytes32 preuvesCID) external {
         // ============ CHECKS ============
         Audit storage audit = audits[auditId];
@@ -441,7 +450,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     }
 
     // =========================================================================
-    // Callback DAOVoting — résolution d'incident
+    // Callback DAOVoting : résolution d'incident
     // =========================================================================
 
     /// @notice Appelé par DAOVoting quand le quorum est atteint
@@ -470,7 +479,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     }
 
     /// @notice Retourne les données complètes d'un audit par son ID
-    /// @dev Retourne une struct memory — Viem expose les champs par nom (pas un tuple indexé)
+    /// @dev Retourne une struct memory : Viem expose les champs par nom (pas un tuple indexé)
     /// @param auditId Identifiant de l'audit
     /// @return Audit correspondant à cet ID
     function getAudit(uint256 auditId) external view returns (Audit memory) {

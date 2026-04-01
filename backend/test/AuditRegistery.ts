@@ -7,6 +7,7 @@ import {
     encodePacked,
     keccak256,
     zeroAddress,
+    Address,
 } from "viem";
 
 const { viem } = await network.connect();
@@ -23,21 +24,31 @@ const VALIDATION_TIMEOUT = 10n * 24n * 60n * 60n; // 10 jours en secondes
 
 const VALID_CID = keccak256(encodePacked(["string"], ["QmTest123"]));
 const PREUVES_CID = keccak256(encodePacked(["string"], ["QmPreuves456"]));
-const EMPTY_CID = `0x${"0".repeat(64)}` as `0x${string}`;
+const EMPTY_CID: Address = `0x${"0".repeat(64)}`;
 const SVG_IMAGE = "<svg xmlns='http://www.w3.org/2000/svg'><text>TEST</text></svg>";
+
+/// @notice pourc caster en unint40.
+const UINT40_MASK = (1n << 40n) - 1n;
+
 
 // =========================================================================
 // Helpers
 // =========================================================================
 
+/// @notice Avance le temps du test de `seconds` secondes et mine un bloc. Utile pour tester la date d'expiration de la garantie et des remboursements.
 async function mineTime(seconds: bigint) {
     const testClient = await viem.getTestClient();
     await testClient.increaseTime({ seconds: Number(seconds) });
     await testClient.mine({ blocks: 1 });
 }
 
-async function impersonateDao(mockDaoAddress: `0x${string}`) {
+
+/// @notice Impersonne une adresse de contrat pour la faire passer dans msg.Sender.
+/// par exemple, C'est la DAO qui doit appeler reseolveIncident() dans la registery mais viem refuse { account: mockDao.address } car il ne trouve
+/// pas de clé privée associée. Cette fonction permet d'impersonner le contrat DAO pour pouvoir appeler les fonctions qui lui sont réservées.
+async function impersonateDao(mockDaoAddress: Address) {
     const testClient = await viem.getTestClient();
+    //pour que le compte impersonné puisse payer les frais de gaz, on lui envoie un peu d'ETH
     await testClient.setBalance({
         address: mockDaoAddress,
         value: parseUnits("1", 18),
@@ -51,7 +62,7 @@ async function impersonateDao(mockDaoAddress: `0x${string}`) {
 
 
 // Fonction pour déployer le contrat 
-async function setUpSmartContract() {
+/* async function setUpSmartContract() {
     const publicClient = await viem.getPublicClient();
     const [owner, ...accounts] = await viem.getWalletClients();
 
@@ -65,7 +76,7 @@ async function setUpSmartContract() {
 
     return { registery, signersRegistered, signerNotRegistered, owner, publicClient };
 }
-
+ */
 
 
 
@@ -111,7 +122,7 @@ describe("AuditRegistry", () => {
             mockDao.address,
         ]);
 
-        // Lier ReputationBadge → AuditRegistry
+        // Lier ReputationBadge -> AuditRegistry
         await badge.write.setRegistryAddress([registry.address], {
             account: owner.account,
         });
@@ -253,7 +264,7 @@ describe("AuditRegistry", () => {
     // =========================================================================
 
     describe("registerAuditor()", () => {
-        it("inscription réussie — badge minté", async () => {
+        it("inscription réussie : badge minté", async () => {
             await registry.write.registerAuditor(
                 ["alice", ["DeFi", "NFT"]],
                 { account: auditor1.account }
@@ -375,7 +386,7 @@ describe("AuditRegistry", () => {
             );
         });
 
-        it("mise à jour réussie — event émis avec nouvelles spécialités", async () => {
+        it("mise à jour réussie : event émis avec nouvelles spécialités", async () => {
             const publicClient = await viem.getPublicClient();
             const hash = await registry.write.updateSpecialties(
                 [["DeFi", "DAO", "zkProof"]],
@@ -394,7 +405,7 @@ describe("AuditRegistry", () => {
             assert.deepEqual(logs[0].args.specialties, ["DeFi", "DAO", "zkProof"]);
         });
 
-        it("liste vide acceptée — suppression de toutes les spécialités", async () => {
+        it("liste vide acceptée : suppression de toutes les spécialités", async () => {
             await assert.doesNotReject(
                 registry.write.updateSpecialties(
                     [[]],
@@ -436,7 +447,7 @@ describe("AuditRegistry", () => {
             );
         });
 
-        it("dépôt réussi — statut PENDING", async () => {
+        it("dépôt réussi : statut PENDING", async () => {
             await registry.write.depositAudit(
                 [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
                 { account: requester.account }
@@ -524,7 +535,7 @@ describe("AuditRegistry", () => {
             const receipt = await publicClient.waitForTransactionReceipt({ hash });
             const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
             const audit = await registry.read.getAudit([1n]);
-            assert.equal(audit.depositedAt, block.timestamp);
+            assert.strictEqual(audit.depositedAt, Number(block.timestamp));
         });
 
         it("revert AmountZero si amount == 0", async () => {
@@ -645,7 +656,7 @@ describe("AuditRegistry", () => {
             const receipt = await publicClient.waitForTransactionReceipt({ hash });
             const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
             const audit = await registry.read.getAudit([1n]);
-            assert.equal(audit.guaranteeEnd, block.timestamp + GUARANTEE_DURATION);
+            assert.strictEqual(audit.guaranteeEnd, Number((block.timestamp + GUARANTEE_DURATION) ));
         });
 
         it("hasPendingAudit remis à false", async () => {
@@ -674,7 +685,7 @@ describe("AuditRegistry", () => {
             assert.equal(lastCall.amount, ESCROW_AMOUNT);
         });
 
-        it("incAudits appelé — totalAudits incrémenté", async () => {
+        it("incAudits appelé : totalAudits incrémenté", async () => {
             await registry.write.validateAudit(
                 [1n, GUARANTEE_DURATION],
                 { account: auditor1.account }
@@ -683,7 +694,7 @@ describe("AuditRegistry", () => {
             assert.equal(data.totalAudits, 1);
         });
 
-        it("incAudits appelé — reputationScore augmenté", async () => {
+        it("incAudits appelé : reputationScore augmenté", async () => {
             const before = (await badge.read.getAuditorData([auditor1.account.address])).reputationScore;
             await registry.write.validateAudit(
                 [1n, GUARANTEE_DURATION],
@@ -881,7 +892,7 @@ describe("AuditRegistry", () => {
             );
         });
 
-        it("signalement réussi — incident créé dans DAOVoting", async () => {
+        it("signalement réussi : incident créé dans DAOVoting", async () => {
             await registry.write.reportExploit(
                 [1n, PREUVES_CID],
                 { account: requester.account }
@@ -901,7 +912,7 @@ describe("AuditRegistry", () => {
             assert.equal(lastCall.preuvesCID, PREUVES_CID);
         });
 
-        it("preuvesCID optionnel — bytes32(0) accepté", async () => {
+        it("preuvesCID optionnel : bytes32(0) accepté", async () => {
             await assert.doesNotReject(
                 registry.write.reportExploit(
                     [1n, EMPTY_CID],
@@ -989,7 +1000,7 @@ describe("AuditRegistry", () => {
             );
         });
 
-        it("exploit validé — statut CLOSED", async () => {
+        it("exploit validé : statut CLOSED", async () => {
             const { daoClient, stop } = await impersonateDao(mockDao.address);
             await registry.write.resolveIncident([1n, true], { account: daoClient.account });
             await stop();
@@ -998,7 +1009,7 @@ describe("AuditRegistry", () => {
             assert.equal(audit.status, 2); // CLOSED
         });
 
-        it("exploit validé — totalExploits incrémenté", async () => {
+        it("exploit validé : totalExploits incrémenté", async () => {
             const { daoClient, stop } = await impersonateDao(mockDao.address);
             await registry.write.resolveIncident([1n, true], { account: daoClient.account });
             await stop();
@@ -1007,7 +1018,7 @@ describe("AuditRegistry", () => {
             assert.equal(data.totalExploits, 1);
         });
 
-        it("exploit rejeté — totalExploits NON incrémenté", async () => {
+        it("exploit rejeté : totalExploits NON incrémenté", async () => {
             const { daoClient, stop } = await impersonateDao(mockDao.address);
             await registry.write.resolveIncident([1n, false], { account: daoClient.account });
             await stop();
@@ -1016,7 +1027,7 @@ describe("AuditRegistry", () => {
             assert.equal(data.totalExploits, 0);
         });
 
-        it("exploit rejeté — statut CLOSED quand même", async () => {
+        it("exploit rejeté : statut CLOSED quand même", async () => {
             const { daoClient, stop } = await impersonateDao(mockDao.address);
             await registry.write.resolveIncident([1n, false], { account: daoClient.account });
             await stop();
@@ -1035,7 +1046,7 @@ describe("AuditRegistry", () => {
             );
         });
 
-        it("event IncidentResolved émis — validated = true", async () => {
+        it("event IncidentResolved émis : validated = true", async () => {
             const publicClient = await viem.getPublicClient();
             const { daoClient, stop } = await impersonateDao(mockDao.address);
             const hash = await registry.write.resolveIncident(
@@ -1057,7 +1068,7 @@ describe("AuditRegistry", () => {
             assert.equal(logs[0].args.validated, true);
         });
 
-        it("event IncidentResolved émis — validated = false", async () => {
+        it("event IncidentResolved émis : validated = false", async () => {
             const publicClient = await viem.getPublicClient();
             const { daoClient, stop } = await impersonateDao(mockDao.address);
             const hash = await registry.write.resolveIncident(
@@ -1080,10 +1091,10 @@ describe("AuditRegistry", () => {
     });
 
     // =========================================================================
-    // Scénarios end-to-end
+    // Scénarios process complet
     // =========================================================================
 
-    describe("Scénarios end-to-end", () => {
+    describe("Scénarios process complet", () => {
         beforeEach(async () => {
             await registry.write.registerAuditor(
                 ["alice", ["DeFi"]],
@@ -1091,7 +1102,7 @@ describe("AuditRegistry", () => {
             );
         });
 
-        it("flux nominal — inscription → dépôt → validation → score mis à jour", async () => {
+        it("flux nominal : inscription -> dépôt -> validation -> score mis à jour", async () => {
             await registry.write.depositAudit(
                 [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
                 { account: requester.account }
@@ -1110,7 +1121,7 @@ describe("AuditRegistry", () => {
             assert.equal(data.totalExploits, 0);
         });
 
-        it("flux timeout — dépôt → 10 jours → remboursement → CLOSED", async () => {
+        it("flux timeout : dépôt -> 10 jours -> remboursement -> CLOSED", async () => {
             await registry.write.depositAudit(
                 [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
                 { account: requester.account }
@@ -1129,7 +1140,7 @@ describe("AuditRegistry", () => {
             assert.equal(audit.status, 2); // CLOSED
         });
 
-        it("flux exploit validé — score dégradé et statut CLOSED", async () => {
+        it("flux exploit validé : score dégradé et statut CLOSED", async () => {
             await registry.write.depositAudit(
                 [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
                 { account: requester.account }
@@ -1154,7 +1165,7 @@ describe("AuditRegistry", () => {
             assert.equal(data.totalExploits, 1);
         });
 
-        it("flux exploit rejeté — score inchangé et statut CLOSED", async () => {
+        it("flux exploit rejeté : score inchangé et statut CLOSED", async () => {
             await registry.write.depositAudit(
                 [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
                 { account: requester.account }
@@ -1180,7 +1191,7 @@ describe("AuditRegistry", () => {
             assert.equal(dataAfter.totalExploits, 0);
         });
 
-        it("deux auditeurs indépendants — pas d'interférence", async () => {
+        it("deux auditeurs indépendants : pas d'interférence", async () => {
             await registry.write.registerAuditor(
                 ["bob", ["NFT"]],
                 { account: auditor2.account }
