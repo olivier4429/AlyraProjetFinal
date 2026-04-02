@@ -354,23 +354,12 @@ describe("AuditRegistry", () => {
         });
 
         it("event AuditorRegistered émis correctement", async () => {
-            const publicClient = await viem.getPublicClient();
-            const hash = await registry.write.registerAuditor(
-                ["alice", ["DeFi", "NFT"]],
-                { account: auditor1.account }
+            await viem.assertions.emitWithArgs(
+                registry.write.registerAuditor(["alice", ["DeFi", "NFT"]], { account: auditor1.account }),
+                registry,
+                "AuditorRegistered",
+                [getAddress(auditor1.account.address), "alice", ["DeFi", "NFT"]]
             );
-            const receipt = await publicClient.waitForTransactionReceipt({ hash });
-            const logs = await publicClient.getContractEvents({
-                address: registry.address,
-                abi: registry.abi,
-                eventName: "AuditorRegistered",
-                fromBlock: receipt.blockNumber,
-                toBlock: receipt.blockNumber,
-            });
-            assert.equal(logs.length, 1);
-            assert.equal(getAddress(logs[0].args.auditor!), getAddress(auditor1.account.address));
-            assert.equal(logs[0].args.pseudo, "alice");
-            assert.deepEqual(logs[0].args.specialties, ["DeFi", "NFT"]);
         });
     });
 
@@ -387,22 +376,12 @@ describe("AuditRegistry", () => {
         });
 
         it("mise à jour réussie : event émis avec nouvelles spécialités", async () => {
-            const publicClient = await viem.getPublicClient();
-            const hash = await registry.write.updateSpecialties(
-                [["DeFi", "DAO", "zkProof"]],
-                { account: auditor1.account }
+            await viem.assertions.emitWithArgs(
+                registry.write.updateSpecialties([["DeFi", "DAO", "zkProof"]], { account: auditor1.account }),
+                registry,
+                "AuditorSpecialtiesUpdated",
+                [getAddress(auditor1.account.address), ["DeFi", "DAO", "zkProof"]]
             );
-            const receipt = await publicClient.waitForTransactionReceipt({ hash });
-            const logs = await publicClient.getContractEvents({
-                address: registry.address,
-                abi: registry.abi,
-                eventName: "AuditorSpecialtiesUpdated",
-                fromBlock: receipt.blockNumber,
-                toBlock: receipt.blockNumber,
-            });
-            assert.equal(logs.length, 1);
-            assert.equal(getAddress(logs[0].args.auditor!), getAddress(auditor1.account.address));
-            assert.deepEqual(logs[0].args.specialties, ["DeFi", "DAO", "zkProof"]);
         });
 
         it("liste vide acceptée : suppression de toutes les spécialités", async () => {
@@ -601,24 +580,15 @@ describe("AuditRegistry", () => {
         });
 
         it("event AuditDeposited émis correctement", async () => {
-            const publicClient = await viem.getPublicClient();
-            const hash = await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
-                { account: requester.account }
+            await viem.assertions.emitWithArgs(
+                registry.write.depositAudit(
+                    [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                    { account: requester.account }
+                ),
+                registry,
+                "AuditDeposited",
+                [1n, getAddress(auditor1.account.address), getAddress(requester.account.address), ESCROW_AMOUNT]
             );
-            const receipt = await publicClient.waitForTransactionReceipt({ hash });
-            const logs = await publicClient.getContractEvents({
-                address: registry.address,
-                abi: registry.abi,
-                eventName: "AuditDeposited",
-                fromBlock: receipt.blockNumber,
-                toBlock: receipt.blockNumber,
-            });
-            assert.equal(logs.length, 1);
-            assert.equal(logs[0].args.auditId, 1n);
-            assert.equal(getAddress(logs[0].args.auditor!), getAddress(auditor1.account.address));
-            assert.equal(getAddress(logs[0].args.requester!), getAddress(requester.account.address));
-            assert.equal(logs[0].args.amount, ESCROW_AMOUNT);
         });
     });
 
@@ -656,7 +626,7 @@ describe("AuditRegistry", () => {
             const receipt = await publicClient.waitForTransactionReceipt({ hash });
             const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
             const audit = await registry.read.getAudit([1n]);
-            assert.strictEqual(audit.guaranteeEnd, Number((block.timestamp + GUARANTEE_DURATION) ));
+            assert.strictEqual(audit.guaranteeEnd, Number((block.timestamp + GUARANTEE_DURATION)));
         });
 
         it("hasPendingAudit remis à false", async () => {
@@ -729,23 +699,12 @@ describe("AuditRegistry", () => {
         });
 
         it("event AuditValidated émis avec immediatePayment = 70%", async () => {
-            const publicClient = await viem.getPublicClient();
-            const hash = await registry.write.validateAudit(
-                [1n, GUARANTEE_DURATION],
-                { account: auditor1.account }
+            await viem.assertions.emitWithArgs(
+                registry.write.validateAudit([1n, GUARANTEE_DURATION], { account: auditor1.account }),
+                registry,
+                "AuditValidated",
+                [1n, getAddress(auditor1.account.address), ESCROW_AMOUNT * 70n / 100n]
             );
-            const receipt = await publicClient.waitForTransactionReceipt({ hash });
-            const logs = await publicClient.getContractEvents({
-                address: registry.address,
-                abi: registry.abi,
-                eventName: "AuditValidated",
-                fromBlock: receipt.blockNumber,
-                toBlock: receipt.blockNumber,
-            });
-            assert.equal(logs.length, 1);
-            assert.equal(logs[0].args.auditId, 1n);
-            assert.equal(getAddress(logs[0].args.auditor!), getAddress(auditor1.account.address));
-            assert.equal(logs[0].args.immediatePayment, ESCROW_AMOUNT * 70n / 100n);
         });
     });
 
@@ -851,24 +810,13 @@ describe("AuditRegistry", () => {
         });
 
         it("event RefundClaimed émis correctement", async () => {
-            const publicClient = await viem.getPublicClient();
             await mineTime(VALIDATION_TIMEOUT + 1n);
-            const hash = await registry.write.claimRefundAfterTimeout(
-                [1n],
-                { account: requester.account }
+            await viem.assertions.emitWithArgs(
+                registry.write.claimRefundAfterTimeout([1n], { account: requester.account }),
+                registry,
+                "RefundClaimed",
+                [1n, getAddress(requester.account.address), ESCROW_AMOUNT]
             );
-            const receipt = await publicClient.waitForTransactionReceipt({ hash });
-            const logs = await publicClient.getContractEvents({
-                address: registry.address,
-                abi: registry.abi,
-                eventName: "RefundClaimed",
-                fromBlock: receipt.blockNumber,
-                toBlock: receipt.blockNumber,
-            });
-            assert.equal(logs.length, 1);
-            assert.equal(logs[0].args.auditId, 1n);
-            assert.equal(getAddress(logs[0].args.requester!), getAddress(requester.account.address));
-            assert.equal(logs[0].args.refundAmount, ESCROW_AMOUNT);
         });
     });
 
@@ -957,22 +905,12 @@ describe("AuditRegistry", () => {
         });
 
         it("event ExploitReported émis correctement", async () => {
-            const publicClient = await viem.getPublicClient();
-            const hash = await registry.write.reportExploit(
-                [1n, PREUVES_CID],
-                { account: requester.account }
+            await viem.assertions.emitWithArgs(
+                registry.write.reportExploit([1n, PREUVES_CID], { account: requester.account }),
+                registry,
+                "ExploitReported",
+                [1n, getAddress(requester.account.address), PREUVES_CID]
             );
-            const receipt = await publicClient.waitForTransactionReceipt({ hash });
-            const logs = await publicClient.getContractEvents({
-                address: registry.address,
-                abi: registry.abi,
-                eventName: "ExploitReported",
-                fromBlock: receipt.blockNumber,
-                toBlock: receipt.blockNumber,
-            });
-            assert.equal(logs.length, 1);
-            assert.equal(logs[0].args.auditId, 1n);
-            assert.equal(getAddress(logs[0].args.requester!), getAddress(requester.account.address));
         });
     });
 
@@ -1047,46 +985,25 @@ describe("AuditRegistry", () => {
         });
 
         it("event IncidentResolved émis : validated = true", async () => {
-            const publicClient = await viem.getPublicClient();
             const { daoClient, stop } = await impersonateDao(mockDao.address);
-            const hash = await registry.write.resolveIncident(
-                [1n, true],
-                { account: daoClient.account }
+            await viem.assertions.emitWithArgs(
+                registry.write.resolveIncident([1n, true], { account: daoClient.account }),
+                registry,
+                "IncidentResolved",
+                [1n, true]
             );
             await stop();
-
-            const receipt = await publicClient.waitForTransactionReceipt({ hash });
-            const logs = await publicClient.getContractEvents({
-                address: registry.address,
-                abi: registry.abi,
-                eventName: "IncidentResolved",
-                fromBlock: receipt.blockNumber,
-                toBlock: receipt.blockNumber,
-            });
-            assert.equal(logs.length, 1);
-            assert.equal(logs[0].args.auditId, 1n);
-            assert.equal(logs[0].args.validated, true);
         });
 
         it("event IncidentResolved émis : validated = false", async () => {
-            const publicClient = await viem.getPublicClient();
             const { daoClient, stop } = await impersonateDao(mockDao.address);
-            const hash = await registry.write.resolveIncident(
-                [1n, false],
-                { account: daoClient.account }
+            await viem.assertions.emitWithArgs(
+                registry.write.resolveIncident([1n, false], { account: daoClient.account }),
+                registry,
+                "IncidentResolved",
+                [1n, false]
             );
             await stop();
-
-            const receipt = await publicClient.waitForTransactionReceipt({ hash });
-            const logs = await publicClient.getContractEvents({
-                address: registry.address,
-                abi: registry.abi,
-                eventName: "IncidentResolved",
-                fromBlock: receipt.blockNumber,
-                toBlock: receipt.blockNumber,
-            });
-            assert.equal(logs.length, 1);
-            assert.equal(logs[0].args.validated, false);
         });
     });
 

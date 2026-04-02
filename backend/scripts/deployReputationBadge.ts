@@ -1,4 +1,7 @@
 import { network } from "hardhat";
+import { readFileSync } from "fs";
+import { resolve } from "path";
+
 const { viem, networkName } = await network.connect();
 const client = await viem.getPublicClient();
 
