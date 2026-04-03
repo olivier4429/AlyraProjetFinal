@@ -28,12 +28,12 @@ contract ReputationBadge is ERC721, Ownable {
     }
 
     /// @notice Mapper le tokenId et les metadata de l'auditeur : score de réputation, nb audits, nb exploits subits, date d'obtention du badge, etc.
-    /// @dev j'aurais aimé que la clé du mapping soit l'adresse de l'auditeur mais tokenID le point d'entrée pour le tokenURI.
+    /// @dev j'aurais aimé que la clé du mapping soit l'adresse de l'auditeur mais tokenID est le point d'entrée pour le tokenURI.
     mapping(uint256 => AuditorData) private _auditorData;
 
     /// @notice Mapping entre une adresse et un tokenID
     /// @dev Utile pour retrouver le tokenId d'un auditeur à partir de son adresse, par exemple pour update ses metadata après un audit.
-    mapping(address => uint256) public tokenIdOf; // mapping pour retrouver le tokenId d'un auditeur à partir de son adresse. plus pratique que mettre l'adresse dans les metadata et parcourir le mapping pour le retrouver.
+    mapping(address => uint256) public tokenIdOf;
 
     //Erreurs :
     error ReputationBadge__Soulbound();
@@ -195,7 +195,7 @@ contract ReputationBadge is ERC721, Ownable {
     }
 
     //----------------------------------------------------------
-    //Fonctions de calcu lde la réputation
+    //Fonctions de calcul de la réputation
     //----------------------------------------------------------
 
     ///@notice Ces fonctions sont appelées par la registry après chaque audit pour mettre à jour les metadata du badge de réputation de l'auditeur

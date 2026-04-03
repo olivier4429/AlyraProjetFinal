@@ -273,14 +273,6 @@ describe("AuditRegistry", () => {
             assert.equal(tokenId, 1n);
         });
 
-        it("pseudo stocké on-chain", async () => {
-            await registry.write.registerAuditor(
-                ["alice", ["DeFi"]],
-                { account: auditor1.account }
-            );
-            const pseudo = await registry.read.pseudoOf([auditor1.account.address]);
-            assert.equal(pseudo, "alice");
-        });
 
         it("auditeur isActive après inscription", async () => {
             await registry.write.registerAuditor(
@@ -314,25 +306,6 @@ describe("AuditRegistry", () => {
             );
         });
 
-        it("revert PseudoTooLong si pseudo vide", async () => {
-            await assert.rejects(
-                registry.write.registerAuditor(
-                    ["", ["DeFi"]],
-                    { account: auditor1.account }
-                ),
-                /AuditRegistry__PseudoTooLong/
-            );
-        });
-
-        it("revert PseudoTooLong si pseudo > 20 caractères", async () => {
-            await assert.rejects(
-                registry.write.registerAuditor(
-                    ["pseudobeaucouptroplonggg", ["DeFi"]],
-                    { account: auditor1.account }
-                ),
-                /AuditRegistry__PseudoTooLong/
-            );
-        });
 
         it("revert TooManySpecialties si > 10 spécialités", async () => {
             await assert.rejects(
@@ -587,7 +560,7 @@ describe("AuditRegistry", () => {
                 ),
                 registry,
                 "AuditDeposited",
-                [1n, getAddress(auditor1.account.address), getAddress(requester.account.address), ESCROW_AMOUNT]
+                [1n, getAddress(auditor1.account.address), getAddress(requester.account.address), getAddress(auditedContract.account.address), VALID_CID, ESCROW_AMOUNT]
             );
         });
     });
@@ -699,11 +672,18 @@ describe("AuditRegistry", () => {
         });
 
         it("event AuditValidated émis avec immediatePayment = 70%", async () => {
+            // On récupère le timestamp du bloc courant avant la tx.
+            // Hardhat en automining incrémente le timestamp de 1s par bloc,
+            // donc le bloc de la tx aura timestamp = latestTimestamp + 1.
+            const publicClient = await viem.getPublicClient();
+            const latestBlock = await publicClient.getBlock();
+            const expectedGuaranteeEnd = latestBlock.timestamp + 1n + GUARANTEE_DURATION;
+
             await viem.assertions.emitWithArgs(
                 registry.write.validateAudit([1n, GUARANTEE_DURATION], { account: auditor1.account }),
                 registry,
                 "AuditValidated",
-                [1n, getAddress(auditor1.account.address), ESCROW_AMOUNT * 70n / 100n]
+                [1n, getAddress(auditor1.account.address), expectedGuaranteeEnd, ESCROW_AMOUNT * 70n / 100n]
             );
         });
     });

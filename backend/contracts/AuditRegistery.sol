@@ -23,9 +23,6 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     /// @notice pas plus de 10 specialités par auditeur pour éviter les abus et limiter la taille des events
     uint8 public constant MAX_SPECIALTIES = 10;
 
-    /// @notice pas plus de 20 caractères pour le pseudo pour éviter les abus et limiter les coûts de stockage (mapping pseudoOf)
-    uint8 public constant MAX_PSEUDO_LENGTH = 20;
-
     /// @notice temps donné à l'auditeur pour valider l'audit après le dépôt. Passé ce délai, le demandeur peut réclamer un remboursement.
     uint256 public constant VALIDATION_TIMEOUT = 10 days;
 
@@ -54,7 +51,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     /// @notice Token USDC utilisé pour les paiements
     IERC20 public immutable usdc;
 
-    /// @notice Adresse du contrat Treasury : Reçoit les frais du protocole : 5% de chaque dépôt d'audit, prélevés immédiatement. C'est la "caisse" du protocole, retirable uniquement par le owner.
+    /// @notice Adresse du contrat Treasury : Reçoit les frais du protocole : 5% de chaque dépôt d'audit, prélevés immédiatement. Retirable uniquement par le owner.
     address public treasuryAddress;
 
     /// @notice Adresse du contrat AuditEscrow : Reçoit les fonds des audits validés et gère la retenue de garantie (30% du montant de l'audit) pendant la période de garantie.
@@ -63,13 +60,11 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     /// @notice Adresse du contrat DAOVoting : Gère les incidents signalés pendant la période de garantie et organise les votes
     address public daoVotingAddress;
 
-    /// @notice Pseudo de l'auditeur (pourrait être stocké off-chain pour reduire les coûts, mais on le garde on-chain pour la simplicité)
-    mapping(address => string) public pseudoOf;
-
     /// @notice Audits asscoiés à un auditId
     mapping(uint256 => Audit) public audits;
 
-    /// @notice Vérifie qu'un audit PENDING existe déjà pour une paire requester/auditeur. Ca encourage à n'avoir qu'un seul auditeur derrière une meme adresse et non pas une société qui porrait traiter plusierurs audits en parralelle.
+    /// @notice Vérifie qu'un audit PENDING existe déjà pour une paire requester/auditeur. 
+    ///          Ca encourage à n'avoir qu'un seul auditeur derrière une meme adresse et non pas une société qui pourrait traiter plusieurs audits en parralelle.
     /// @dev RG-14 : 1 seul audit actif par paire
     mapping(address => mapping(address => bool)) public hasPendingAudit;
 
@@ -97,7 +92,6 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     error AuditRegistry__TransferFailed();
     error AuditRegistry__NotDAOVoting();
     error AuditRegistry__TooManySpecialties();
-    error AuditRegistry__PseudoTooLong();
     error AuditRegistry__ValidationTimeout();
 
     // =========================================================================
@@ -109,15 +103,13 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     event AuditorRegistered(
         address indexed auditor,
         string pseudo,
-        string[] specialties,
-        uint256 timestamp
+        string[] specialties
     );
 
     /// @notice Émis lors de la mise à jour des spécialités d'un auditeur
     event AuditorSpecialtiesUpdated(
         address indexed auditor,
-        string[] specialties,
-        uint256 timestamp
+        string[] specialties
     );
 
     /// @notice Émis au dépôt d'un audit (phase 4)
@@ -127,8 +119,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
         address indexed requester,
         address auditedContractAddress,
         bytes32 reportCID,
-        uint256 amount,
-        uint256 timestamp
+        uint256 amount
     );
 
     /// @notice Émis à la validation d'un audit (phase 5)
@@ -143,7 +134,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     event ExploitReported(
         uint256 indexed auditId,
         address indexed requester,
-        uint256 timestamp
+        bytes32 preuvesCID
     );
 
     /// @notice Émis lors d'une réclamation de remboursement après timeout de validation
@@ -215,19 +206,11 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
             revert AuditRegistry__AlreadyRegistered();
         if (specialties.length > MAX_SPECIALTIES)
             revert AuditRegistry__TooManySpecialties();
-        if (
-            bytes(pseudo).length == 0 ||
-            bytes(pseudo).length > MAX_PSEUDO_LENGTH
-        ) revert AuditRegistry__PseudoTooLong();
-
         // ============ EFFECTS ============
-        pseudoOf[msg.sender] = pseudo;
-
         emit AuditorRegistered(
             msg.sender,
-            pseudo,
-            specialties,
-            block.timestamp
+            pseudo, //Le pseudo etait initailement prevu on-chain our silplifier la DApp, mais j'ai prefere le retirer pour diminuer les couts. L'auditeur peut choisir un pseudo pour l'enregistrer pour l'audit. Mais c'est plus pour le fun que pour autre chose.
+            specialties
         );
 
         // ============ INTERACTIONS ============
@@ -248,8 +231,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
 
         emit AuditorSpecialtiesUpdated(
             msg.sender,
-            specialties,
-            block.timestamp
+            specialties
         );
     }
 
@@ -309,8 +291,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
             msg.sender,
             auditedContractAddress,
             reportCID,
-            escrowAmount,
-            block.timestamp
+            escrowAmount
         );
 
         // ============ INTERACTIONS ============
@@ -439,7 +420,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
             revert AuditRegistry__IncidentAlreadyExists();
 
         // ============ EFFECTS ============
-        emit ExploitReported(auditId, msg.sender, block.timestamp);
+        emit ExploitReported(auditId, msg.sender, preuvesCID);
 
         // ============ INTERACTIONS ============
         IDaoVoting(daoVotingAddress).createIncident(
