@@ -27,7 +27,7 @@ const PREUVES_CID = keccak256(encodePacked(["string"], ["QmPreuves456"]));
 const EMPTY_CID: Address = `0x${"0".repeat(64)}`;
 const SVG_IMAGE = "<svg xmlns='http://www.w3.org/2000/svg'><text>TEST</text></svg>";
 
-/// @notice pourc caster en unint40.
+/** @notice pourc caster en unint40. */
 const UINT40_MASK = (1n << 40n) - 1n;
 
 
@@ -35,7 +35,7 @@ const UINT40_MASK = (1n << 40n) - 1n;
 // Helpers
 // =========================================================================
 
-/// @notice Avance le temps du test de `seconds` secondes et mine un bloc. Utile pour tester la date d'expiration de la garantie et des remboursements.
+/** @notice Avance le temps du test de `seconds` secondes et mine un bloc. Utile pour tester la date d'expiration de la garantie et des remboursements. */
 async function mineTime(seconds: bigint) {
     const testClient = await viem.getTestClient();
     await testClient.increaseTime({ seconds: Number(seconds) });
@@ -43,9 +43,11 @@ async function mineTime(seconds: bigint) {
 }
 
 
-/// @notice Impersonne une adresse de contrat pour la faire passer dans msg.Sender.
-/// par exemple, C'est la DAO qui doit appeler reseolveIncident() dans la registery mais viem refuse { account: mockDao.address } car il ne trouve
-/// pas de clé privée associée. Cette fonction permet d'impersonner le contrat DAO pour pouvoir appeler les fonctions qui lui sont réservées.
+/**
+ * @notice Impersonne une adresse de contrat pour la faire passer dans msg.Sender.
+ * par exemple, C'est la DAO qui doit appeler reseolveIncident() dans la registery mais viem refuse { account: mockDao.address } car il ne trouve
+ * pas de clé privée associée. Cette fonction permet d'impersonner le contrat DAO pour pouvoir appeler les fonctions qui lui sont réservées.
+ */
 async function impersonateDao(mockDaoAddress: Address) {
     const testClient = await viem.getTestClient();
     //pour que le compte impersonné puisse payer les frais de gaz, on lui envoie un peu d'ETH

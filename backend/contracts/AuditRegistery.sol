@@ -6,28 +6,33 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol"; //Pas tres utile car
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol"; //Pour les USDC
 import "./ReputationBadge.sol";
 
-/// @title AuditRegistry
-/// @author OLB
-/// @notice Contrat principal du protocole AuditRegistry.
-///         Gère l'inscription des auditeurs, le dépôt des audits,
-///         la validation, et le signalement d'exploits.
-/// @dev Ce contrat interagit avec ReputationBadge, AuditEscrow, DAOVoting.
-///      Il utilise des USDC 6 digits. Attention : ETH est sur 18 digits.
+/**
+ * @title AuditRegistry
+ * @author OLB
+ * @notice Contrat principal du protocole AuditRegistry.
+ *         Gère l'inscription des auditeurs, le dépôt des audits,
+ *         la validation, et le signalement d'exploits.
+ * @dev Ce contrat interagit avec ReputationBadge, AuditEscrow, DAOVoting.
+ *      Il utilise des USDC 6 digits. Attention : ETH est sur 18 digits.
+ */
 contract AuditRegistry is Ownable, ReentrancyGuard {
-    /// @notice Etat de l'audit
+    /** @notice Etat de l'audit */
     enum AuditStatus {
         PENDING,
         VALIDATED,
         CLOSED
     }
-    /// @notice pas plus de 10 specialités par auditeur pour éviter les abus et limiter la taille des events
+
+    /** @notice pas plus de 10 specialités par auditeur pour éviter les abus et limiter la taille des events */
     uint8 public constant MAX_SPECIALTIES = 10;
 
-    /// @notice temps donné à l'auditeur pour valider l'audit après le dépôt. Passé ce délai, le demandeur peut réclamer un remboursement.
+    /** @notice temps donné à l'auditeur pour valider l'audit après le dépôt. Passé ce délai, le demandeur peut réclamer un remboursement. */
     uint256 public constant VALIDATION_TIMEOUT = 10 days;
 
-    /// @notice Struct représentant un audit
-    /// @dev Pour le storage packing, on passe les dates de uint256 à uint40 ( année 36812 c'est assez loin)
+    /**
+     * @notice Struct représentant un audit
+     * @dev Pour le storage packing, on passe les dates de uint256 à uint40 ( année 36812 c'est assez loin)
+     */
     struct Audit {
         //Slot 0 : 240 bits
         address auditor; //160 bits Adresse de l'auditeur désigné
@@ -44,31 +49,35 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
         address requester; //160 bits Adresse du demandeur de l'audit
     }
 
-    /// @notice Contrat ReputationBadge : source de vérité pour les auditeurs
-    /// @dev immutable parce qu'on ne veut qu'elle puisse être changée apres déploiement et pour économiser du gas car elle est inliné dans le code et n'occupe de storage.
+    /**
+     * @notice Contrat ReputationBadge : source de vérité pour les auditeurs
+     * @dev immutable parce qu'on ne veut qu'elle puisse être changée apres déploiement et pour économiser du gas car elle est inliné dans le code et n'occupe de storage.
+     */
     ReputationBadge public immutable reputationBadge;
 
-    /// @notice Token USDC utilisé pour les paiements
+    /** @notice Token USDC utilisé pour les paiements */
     IERC20 public immutable usdc;
 
-    /// @notice Adresse du contrat Treasury : Reçoit les frais du protocole : 5% de chaque dépôt d'audit, prélevés immédiatement. Retirable uniquement par le owner.
+    /** @notice Adresse du contrat Treasury : Reçoit les frais du protocole : 5% de chaque dépôt d'audit, prélevés immédiatement. Retirable uniquement par le owner. */
     address public treasuryAddress;
 
-    /// @notice Adresse du contrat AuditEscrow : Reçoit les fonds des audits validés et gère la retenue de garantie (30% du montant de l'audit) pendant la période de garantie.
+    /** @notice Adresse du contrat AuditEscrow : Reçoit les fonds des audits validés et gère la retenue de garantie (30% du montant de l'audit) pendant la période de garantie. */
     address public escrowAddress;
 
-    /// @notice Adresse du contrat DAOVoting : Gère les incidents signalés pendant la période de garantie et organise les votes
+    /** @notice Adresse du contrat DAOVoting : Gère les incidents signalés pendant la période de garantie et organise les votes */
     address public daoVotingAddress;
 
-    /// @notice Audits asscoiés à un auditId
+    /** @notice Audits asscoiés à un auditId */
     mapping(uint256 => Audit) public audits;
 
-    /// @notice Vérifie qu'un audit PENDING existe déjà pour une paire requester/auditeur. 
-    ///          Ca encourage à n'avoir qu'un seul auditeur derrière une meme adresse et non pas une société qui pourrait traiter plusieurs audits en parralelle.
-    /// @dev RG-14 : 1 seul audit actif par paire
+    /**
+     * @notice Vérifie qu'un audit PENDING existe déjà pour une paire requester/auditeur.
+     *          Ca encourage à n'avoir qu'un seul auditeur derrière une meme adresse et non pas une société qui pourrait traiter plusieurs audits en parralelle.
+     * @dev RG-14 : 1 seul audit actif par paire
+     */
     mapping(address => mapping(address => bool)) public hasPendingAudit;
 
-    /// @notice Compteur d'audits : sert d'auditId
+    /** @notice Compteur d'audits : sert d'auditId */
     uint256 public auditCount;
 
     // =========================================================================
@@ -98,21 +107,23 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     // Events
     // =========================================================================
 
-    /// @notice Émis à l'inscription d'un auditeur
-    /// @dev Le pseudo est stocké on-chain. Les spécialités uniquement dans l'event (gas optimal)
+    /**
+     * @notice Émis à l'inscription d'un auditeur
+     * @dev Les spécialités uniquement dans l'event (gas optimal)
+     */
     event AuditorRegistered(
         address indexed auditor,
         string pseudo,
         string[] specialties
     );
 
-    /// @notice Émis lors de la mise à jour des spécialités d'un auditeur
+    /** @notice Émis lors de la mise à jour des spécialités d'un auditeur */
     event AuditorSpecialtiesUpdated(
         address indexed auditor,
         string[] specialties
     );
 
-    /// @notice Émis au dépôt d'un audit (phase 4)
+    /** @notice Émis au dépôt d'un audit (phase 4) */
     event AuditDeposited(
         uint256 indexed auditId,
         address indexed auditor,
@@ -122,7 +133,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
         uint256 amount
     );
 
-    /// @notice Émis à la validation d'un audit (phase 5)
+    /** @notice Émis à la validation d'un audit (phase 5) */
     event AuditValidated(
         uint256 indexed auditId,
         address indexed auditor,
@@ -130,28 +141,28 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
         uint256 immediatePayment
     );
 
-    /// @notice Émis lors du signalement d'un exploit (phase 6a)
+    /** @notice Émis lors du signalement d'un exploit (phase 6a) */
     event ExploitReported(
         uint256 indexed auditId,
         address indexed requester,
         bytes32 preuvesCID
     );
 
-    /// @notice Émis lors d'une réclamation de remboursement après timeout de validation
+    /** @notice Émis lors d'une réclamation de remboursement après timeout de validation */
     event RefundClaimed(
         uint256 indexed auditId,
         address indexed requester,
         uint256 refundAmount
     );
 
-    /// @notice Émis lors de la résolution d'un incident par la DAO
+    /** @notice Émis lors de la résolution d'un incident par la DAO */
     event IncidentResolved(uint256 indexed auditId, bool validated);
 
     // =========================================================================
     // Modifiers
     // =========================================================================
 
-    /// @dev Vérifie que l'adresse est inscrite comme auditeur actif
+    /** @dev Vérifie que l'adresse est inscrite comme auditeur actif */
     modifier onlyRegisteredAuditor(address auditor) {
         if (reputationBadge.tokenIdOf(auditor) == 0)
             revert AuditRegistry__AuditorNotRegistered();
@@ -190,13 +201,15 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     // Phase 1 : Inscription auditeur
     // =========================================================================
 
-    /// @notice Inscrit un nouvel auditeur et lui mint un ReputationBadge
-    /// @dev RG-01 : 1 inscription par adresse
-    ///      RG-02 : score initial = 0 (géré par ReputationBadge)
-    ///      RG-03 : mint NFT dès l'inscription
-    ///      RG-04 : spécialités uniquement dans l'event (gas optimal)
-    /// @param pseudo      Pseudonyme on-chain de l'auditeur
-    /// @param specialties Liste de spécialités (DeFi, NFT, DAO, zkProof...)
+    /**
+     * @notice Inscrit un nouvel auditeur et lui mint un ReputationBadge
+     * @dev RG-01 : 1 inscription par adresse
+     *      RG-02 : score initial = 0 (géré par ReputationBadge)
+     *      RG-03 : mint NFT dès l'inscription
+     *      RG-04 : spécialités uniquement dans l'event (gas optimal)
+     * @param pseudo      Pseudonyme de l'auditeur (uniquement dans l'event)
+     * @param specialties Liste de spécialités (DeFi, NFT, DAO, zkProof...)
+     */
     function registerAuditor(
         string calldata pseudo,
         string[] calldata specialties
@@ -209,7 +222,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
         // ============ EFFECTS ============
         emit AuditorRegistered(
             msg.sender,
-            pseudo, //Le pseudo etait initailement prevu on-chain our silplifier la DApp, mais j'ai prefere le retirer pour diminuer les couts. L'auditeur peut choisir un pseudo pour l'enregistrer pour l'audit. Mais c'est plus pour le fun que pour autre chose.
+            pseudo,
             specialties
         );
 
@@ -217,11 +230,13 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
         reputationBadge.mintNft(msg.sender);
     }
 
-    /// @notice Met à jour les spécialités d'un auditeur
-    /// @dev Les spécialités ne sont pas stockées on-chain : uniquement dans les events.
-    ///      La DApp indexe le dernier event AuditorSpecialtiesUpdated pour afficher
-    ///      les spécialités courantes. L'historique complet reste consultable.
-    /// @param specialties Nouvelle liste complète de spécialités (remplace l'ancienne)
+    /**
+     * @notice Met à jour les spécialités d'un auditeur
+     * @dev Les spécialités ne sont pas stockées on-chain : uniquement dans les events.
+     *      La DApp indexe le dernier event AuditorSpecialtiesUpdated pour afficher
+     *      les spécialités courantes. L'historique complet reste consultable.
+     * @param specialties Nouvelle liste complète de spécialités (remplace l'ancienne)
+     */
     function updateSpecialties(string[] calldata specialties) external {
         // Vérification que l'appelant est bien un auditeur inscrit
         if (reputationBadge.tokenIdOf(msg.sender) == 0)
@@ -239,22 +254,23 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     // Phase 4 : Dépôt
     // =========================================================================
 
-    /// @notice Dépose le montant d'un audit et le rapport IPFS.
-    ///         C'est le demandeur qui dépose l'audit après qu'il l'ait lu.
-    ///         Il peut ainsi faire des retours à l'auditeur avant validation.
-    /// @dev RG-10 : auditeur doit être inscrit et actif
-    ///      RG-11 : montant > 0
-    ///      RG-12 : 5% → Treasury immédiat
-    ///      RG-13 : escrow = 95% du dépôt
-    ///      RG-14 : 1 seul audit PENDING par paire requester/auditeur
-    ///      RG-15 : CID obligatoire
-    ///      modifier nonReentrant parce qu'on appelle le contrat USDC qui est externe à ce protocol
-    ///      modifier onlyRegisteredAuditor(auditor) pour vérifier que l'auditeur désigné est bien inscrit et actif
-    /// @param auditor                Adresse de l'auditeur désigné
-    /// @param auditedContractAddress Adresse du smart contract audité
-    /// @param reportCID              CID IPFS du rapport encodé en bytes32
-    /// @param amount                 Montant total en USDC (6 décimales)
-
+    /**
+     * @notice Dépose le montant d'un audit et le rapport IPFS.
+     *         C'est le demandeur qui dépose l'audit après qu'il l'ait lu.
+     *         Il peut ainsi faire des retours à l'auditeur avant validation.
+     * @dev RG-10 : auditeur doit être inscrit et actif
+     *      RG-11 : montant > 0
+     *      RG-12 : 5% → Treasury immédiat
+     *      RG-13 : escrow = 95% du dépôt
+     *      RG-14 : 1 seul audit PENDING par paire requester/auditeur
+     *      RG-15 : CID obligatoire
+     *      modifier nonReentrant parce qu'on appelle le contrat USDC qui est externe à ce protocol
+     *      modifier onlyRegisteredAuditor(auditor) pour vérifier que l'auditeur désigné est bien inscrit et actif
+     * @param auditor                Adresse de l'auditeur désigné
+     * @param auditedContractAddress Adresse du smart contract audité
+     * @param reportCID              CID IPFS du rapport encodé en bytes32
+     * @param amount                 Montant total en USDC (6 décimales)
+     */
     function depositAudit(
         address auditor,
         address auditedContractAddress,
@@ -313,15 +329,17 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     // Phase 5 : Validation
     // =========================================================================
 
-    /// @notice Valide un audit et déclenche la ventilation 70/30
-    /// @dev RG-20 : seul l'auditeur désigné peut valider
-    ///      RG-21 : audit doit être PENDING
-    ///      RG-22 : garantie minimum 90 jours
-    ///      RG-23 : 70% immédiat → auditeur (via AuditEscrow)
-    ///      RG-24 : 30% → Aave v3 (via AuditEscrow)
-    ///      RG-25 : statut → VALIDATED
-    /// @param auditId           Identifiant de l'audit
-    /// @param guaranteeDuration Durée de garantie en secondes
+    /**
+     * @notice Valide un audit et déclenche la ventilation 70/30
+     * @dev RG-20 : seul l'auditeur désigné peut valider
+     *      RG-21 : audit doit être PENDING
+     *      RG-22 : garantie minimum 90 jours
+     *      RG-23 : 70% immédiat → auditeur (via AuditEscrow)
+     *      RG-24 : 30% → Aave v3 (via AuditEscrow)
+     *      RG-25 : statut → VALIDATED
+     * @param auditId           Identifiant de l'audit
+     * @param guaranteeDuration Durée de garantie en secondes
+     */
     function validateAudit(
         uint256 auditId,
         uint256 guaranteeDuration
@@ -367,10 +385,12 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
         );
     }
 
-    /// @notice Permet au requester de récupérer ses fonds si l'auditeur
-    ///         n'a pas répondu dans les 10 jours suivant le dépôt
-    /// @dev Pas d'annulation volontaire - uniquement après expiration du timeout
-    /// @param auditId Identifiant de l'audit
+    /**
+     * @notice Permet au requester de récupérer ses fonds si l'auditeur
+     *         n'a pas répondu dans les 10 jours suivant le dépôt
+     * @dev Pas d'annulation volontaire - uniquement après expiration du timeout
+     * @param auditId Identifiant de l'audit
+     */
     function claimRefundAfterTimeout(uint256 auditId) external {
         // ============ CHECKS ============
         Audit storage audit = audits[auditId];
@@ -402,12 +422,14 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     // Phase 6a : Signalement exploit
     // =========================================================================
 
-    /// @notice Signale un exploit pendant la période de garantie. Seul le demandeur peut le faire et un seul exploit peut être signalé par audit.
-    /// @dev RG-40 : seul le requester peut signaler
-    ///      RG-41 : uniquement pendant le timelock
-    ///      RG-42 : 1 seul incident par audit
-    /// @param auditId    Identifiant de l'audit
-    /// @param preuvesCID CID IPFS des preuves (optionnel : bytes32(0) si absent)
+    /**
+     * @notice Signale un exploit pendant la période de garantie. Seul le demandeur peut le faire et un seul exploit peut être signalé par audit.
+     * @dev RG-40 : seul le requester peut signaler
+     *      RG-41 : uniquement pendant le timelock
+     *      RG-42 : 1 seul incident par audit
+     * @param auditId    Identifiant de l'audit
+     * @param preuvesCID CID IPFS des preuves (optionnel : bytes32(0) si absent)
+     */
     function reportExploit(uint256 auditId, bytes32 preuvesCID) external {
         // ============ CHECKS ============
         Audit storage audit = audits[auditId];
@@ -434,12 +456,14 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     // Callback DAOVoting : résolution d'incident
     // =========================================================================
 
-    /// @notice Appelé par DAOVoting quand le quorum est atteint
-    /// @dev Seul DAOVoting peut appeler cette fonction
-    ///      Exploit validé → pénalité score auditeur
-    ///      Exploit rejeté → aucun effet sur le score
-    /// @param auditId   Identifiant de l'audit
-    /// @param validated true = exploit validé | false = exploit rejeté
+    /**
+     * @notice Appelé par DAOVoting quand le quorum est atteint
+     * @dev Seul DAOVoting peut appeler cette fonction
+     *      Exploit validé → pénalité score auditeur
+     *      Exploit rejeté → aucun effet sur le score
+     * @param auditId   Identifiant de l'audit
+     * @param validated true = exploit validé | false = exploit rejeté
+     */
     function resolveIncident(uint256 auditId, bool validated) external {
         // ============ CHECKS ============
         if (msg.sender != daoVotingAddress)
@@ -459,10 +483,12 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
         }
     }
 
-    /// @notice Retourne les données complètes d'un audit par son ID
-    /// @dev Retourne une struct memory : Viem expose les champs par nom (pas un tuple indexé)
-    /// @param auditId Identifiant de l'audit
-    /// @return Audit correspondant à cet ID
+    /**
+     * @notice Retourne les données complètes d'un audit par son ID
+     * @dev Retourne une struct memory : Viem expose les champs par nom (pas un tuple indexé)
+     * @param auditId Identifiant de l'audit
+     * @return Audit correspondant à cet ID
+     */
     function getAudit(uint256 auditId) external view returns (Audit memory) {
         return audits[auditId];
     }

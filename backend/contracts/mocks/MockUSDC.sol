@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-/// @notice Mock USDC pour les tests. 6 décimales comme USDC
+/** @notice Mock USDC pour les tests. 6 décimales comme USDC */
 contract MockUSDC is ERC20 {
     constructor() ERC20("USD Coin", "USDC") {}
 
@@ -11,7 +11,7 @@ contract MockUSDC is ERC20 {
         return 6;
     }
 
-    /// @notice Mint à volonté. Uniquement pour les tests
+    /** @notice Mint à volonté. Uniquement pour les tests */
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
     }

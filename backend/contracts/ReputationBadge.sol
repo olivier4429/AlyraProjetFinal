@@ -7,18 +7,22 @@ import "@openzeppelin/contracts/utils/Base64.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
-/// @title ReputationBadge
-/// @author OLB
-/// @notice Ce contrat permet d'attribuer un badge de réputation à un utilisateur. Le badge est un token ERC721 qui ne peut pas être transféré. C'est un SoulBound token. Tout auditeur qui s'inscrit sur la DApp peut recevoir un NFT.
+/**
+ * @title ReputationBadge
+ * @author OLB
+ * @notice Ce contrat permet d'attribuer un badge de réputation à un utilisateur. Le badge est un token ERC721 qui ne peut pas être transféré. C'est un SoulBound token. Tout auditeur qui s'inscrit sur la DApp peut recevoir un NFT.
+ */
 contract ReputationBadge is ERC721, Ownable {
-    /// @notice Adresse du contrat AuditRegistry — seul autorisé à mint/update
+    /** @notice Adresse du contrat AuditRegistry — seul autorisé à mint/update */
     address public registryAddress;
 
     uint256 private tokenCounter;
     string private imageURI;
 
-    /// @notice Metatdonnées du NFT de réputation.
-    /// @dev Variable packing pour passer de 5 à 1 slot de stockage (256 bits exactement).
+    /**
+     * @notice Metatdonnées du NFT de réputation.
+     * @dev Variable packing pour passer de 5 à 1 slot de stockage (256 bits exactement).
+     */
     struct AuditorData {
         uint120 registrationDate; // max = 1.3e36 (année 4.2e21, bien suffisant)
         uint64 reputationScore; // max = 18,446,744,073,709,551,615 (largement suffisant pour score)
@@ -27,12 +31,16 @@ contract ReputationBadge is ERC721, Ownable {
         bool isActive; //1 bit
     }
 
-    /// @notice Mapper le tokenId et les metadata de l'auditeur : score de réputation, nb audits, nb exploits subits, date d'obtention du badge, etc.
-    /// @dev j'aurais aimé que la clé du mapping soit l'adresse de l'auditeur mais tokenID est le point d'entrée pour le tokenURI.
+    /**
+     * @notice Mapper le tokenId et les metadata de l'auditeur : score de réputation, nb audits, nb exploits subits, date d'obtention du badge, etc.
+     * @dev j'aurais aimé que la clé du mapping soit l'adresse de l'auditeur mais tokenID est le point d'entrée pour le tokenURI.
+     */
     mapping(uint256 => AuditorData) private _auditorData;
 
-    /// @notice Mapping entre une adresse et un tokenID
-    /// @dev Utile pour retrouver le tokenId d'un auditeur à partir de son adresse, par exemple pour update ses metadata après un audit.
+    /**
+     * @notice Mapping entre une adresse et un tokenID
+     * @dev Utile pour retrouver le tokenId d'un auditeur à partir de son adresse, par exemple pour update ses metadata après un audit.
+     */
     mapping(address => uint256) public tokenIdOf;
 
     //Erreurs :
@@ -46,17 +54,17 @@ contract ReputationBadge is ERC721, Ownable {
     // EIP-5192 Soul-bound + EIP-4906 Metadata Update
     // =========================================================================
 
-    /// @dev EIP-5192 : émis au mint pour signaler que le token est verrouillé à vie
+    /** @dev EIP-5192 : émis au mint pour signaler que le token est verrouillé à vie */
     event Locked(uint256 tokenId);
 
-    /// @dev EIP-4906 : émis après chaque modification de metadata pour notifier les indexeurs
+    /** @dev EIP-4906 : émis après chaque modification de metadata pour notifier les indexeurs */
     event MetadataUpdate(uint256 tokenId);
 
     // =========================================================================
     // Modifiers
     // =========================================================================
 
-    /// @notice Seul la registry peut modifier les metadata du badge de réputation
+    /** @notice Seul la registry peut modifier les metadata du badge de réputation */
     modifier onlyRegistry() {
         if (msg.sender != registryAddress)
             revert ReputationBadge__NotRegistry();
@@ -70,9 +78,11 @@ contract ReputationBadge is ERC721, Ownable {
         imageURI = svgToImageURI(svgImage);
     }
 
-    /// @notice Définit l'adresse du contrat AuditRegistry
-    /// @dev Appelé par le owner après déploiement d'AuditRegistry. Elle peut être modifiée plus tard en cas de changement de registery (update)
-    /// @param registry Adresse du contrat AuditRegistry
+    /**
+     * @notice Définit l'adresse du contrat AuditRegistry
+     * @dev Appelé par le owner après déploiement d'AuditRegistry. Elle peut être modifiée plus tard en cas de changement de registery (update)
+     * @param registry Adresse du contrat AuditRegistry
+     */
     function setRegistryAddress(address registry) external onlyOwner {
         if (registry == address(0)) revert ReputationBadge__ZeroAddress();
         registryAddress = registry;
@@ -103,10 +113,10 @@ contract ReputationBadge is ERC721, Ownable {
     }
 
     /**
-     *@notice Cette fonction convertit une chaîne SVG en une URI d'image encodée en base64.
-     *@dev inspiration https://github.com/BenBktech/NFT-Project-with-OnChain-Metadatas/blob/main/contracts/NFTIsERC721.sol
-     *@param svg La chaîne SVG à convertir.
-     *@return Une URI d'image encodée en base64.
+     * @notice Cette fonction convertit une chaîne SVG en une URI d'image encodée en base64.
+     * @dev inspiration https://github.com/BenBktech/NFT-Project-with-OnChain-Metadatas/blob/main/contracts/NFTIsERC721.sol
+     * @param svg La chaîne SVG à convertir.
+     * @return Une URI d'image encodée en base64.
      */
     function svgToImageURI(
         string memory /*pas de calldata car cette fonction est appelée par le constructor et il ne peut pas avoir un calldata en parametre*/ svg
@@ -118,15 +128,16 @@ contract ReputationBadge is ERC721, Ownable {
         return string(abi.encodePacked(baseURL, svgBase64Encoded));
     }
 
-    /// @notice Override de la fonction _baseURI pour retourner une URI de base qui indique que les metadata sont encodées en base64.
+    /** @notice Override de la fonction _baseURI pour retourner une URI de base qui indique que les metadata sont encodées en base64. */
     function _baseURI() internal pure override returns (string memory) {
         return "data:application/json;base64,";
     }
+
     /**
-     *@notice Retourne dynamiquement les metadata en base64 :score de réputation, nb audits, nb expoits subits, date d'obtention du badge, etc. L'image est une chaîne SVG encodée en base64.
-     *@dev Basé sur la documenation d'OpenSea :https://docs.opensea.io/docs/metadata-standards
-     *@param tokenId L'ID du token pour lequel retourner l'URI.
-     *@return les metadata encodées en base64.
+     * @notice Retourne dynamiquement les metadata en base64 :score de réputation, nb audits, nb expoits subits, date d'obtention du badge, etc. L'image est une chaîne SVG encodée en base64.
+     * @dev Basé sur la documenation d'OpenSea :https://docs.opensea.io/docs/metadata-standards
+     * @param tokenId L'ID du token pour lequel retourner l'URI.
+     * @return les metadata encodées en base64.
      */
     function tokenURI(
         uint256 tokenId
@@ -185,7 +196,7 @@ contract ReputationBadge is ERC721, Ownable {
         return tokenCounter;
     }
 
-    /// @notice Retourne les données de réputation d'un auditeur par adresse
+    /** @notice Retourne les données de réputation d'un auditeur par adresse */
     function getAuditorData(
         address auditor
     ) external view returns (AuditorData memory) {
@@ -198,7 +209,7 @@ contract ReputationBadge is ERC721, Ownable {
     //Fonctions de calcul de la réputation
     //----------------------------------------------------------
 
-    ///@notice Ces fonctions sont appelées par la registry après chaque audit pour mettre à jour les metadata du badge de réputation de l'auditeur
+    /** @notice Ces fonctions sont appelées par la registry après chaque audit pour mettre à jour les metadata du badge de réputation de l'auditeur */
     function incAudits(
         uint256 tokenId,
         uint256 guaranteeAmount //  100_000_000 => 100 USDC en unités ERC-20
@@ -211,7 +222,7 @@ contract ReputationBadge is ERC721, Ownable {
         emit MetadataUpdate(tokenId); // EIP-4906 : signaler que les metadata ont été mises à jour
     }
 
-    /// @notice Incrémente le nombre d'exploits subits par l'auditeur et met à jour son score de réputation en conséquence
+    /** @notice Incrémente le nombre d'exploits subits par l'auditeur et met à jour son score de réputation en conséquence */
     function incExploits(
         uint256 tokenId,
         uint256 guaranteeAmount //  100_000_000 => 100 USDC en unités ERC-20
@@ -231,8 +242,11 @@ contract ReputationBadge is ERC721, Ownable {
     //----------------------------------------------------------
     //Soulbound token : override des fonctions de transfert pour empêcher le transfert du badge de réputation
     //----------------------------------------------------------
-    ///@notice Override de la fonction _update pour empêcher le transfert du badge de réputation. C'est un SoulBound token.
-    ///@dev _safetransfer,_transfert appellent _update en interne.
+
+    /**
+     * @notice Override de la fonction _update pour empêcher le transfert du badge de réputation. C'est un SoulBound token.
+     * @dev _safetransfer,_transfert appellent _update en interne.
+     */
     function _update(
         address to,
         uint256 tokenId,
@@ -247,10 +261,13 @@ contract ReputationBadge is ERC721, Ownable {
     //----------------------------------------------------------
     //Pour préciser les interfaces supportées par le contrat, notamment pour indiquer que c'est un SoulBound token (EIP-5192) et qu'il supporte la mise à jour des metadata (EIP-4906)
     //----------------------------------------------------------
-    /// @notice Déclare les interfaces supportées (ERC-165)
-    /// @dev 0xb45a3c0e = EIP-5192 (soul-bound)
-    ///      0x49064906 = EIP-4906 (metadata update)
-    ///      super gère ERC-721 (0x80ac58cd) et ERC-165 (0x01ffc9a7)
+
+    /**
+     * @notice Déclare les interfaces supportées (ERC-165)
+     * @dev 0xb45a3c0e = EIP-5192 (soul-bound)
+     *      0x49064906 = EIP-4906 (metadata update)
+     *      super gère ERC-721 (0x80ac58cd) et ERC-165 (0x01ffc9a7)
+     */
     function supportsInterface(
         bytes4 interfaceId
     ) public view override returns (bool) {
@@ -260,8 +277,10 @@ contract ReputationBadge is ERC721, Ownable {
             super.supportsInterface(interfaceId);
     }
 
-    /// @notice Retourne true si le token est verrouillé — toujours true (EIP-5192)
-    /// @dev Requis par EIP-5192 — permet aux marketplaces de détecter le soul-bound sans tenter un transfert qui echouerait
+    /**
+     * @notice Retourne true si le token est verrouillé — toujours true (EIP-5192)
+     * @dev Requis par EIP-5192 — permet aux marketplaces de détecter le soul-bound sans tenter un transfert qui echouerait
+     */
     function locked(uint256 tokenId) external view returns (bool) {
         if (_ownerOf(tokenId) == address(0))
             revert ReputationBadge__TokenDoesNotExist();
