@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { WagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-// L'import de appkitConfig déclenche createAppKit (effet de bord voulu)
+// L'import de appkitConfig déclenche createAppKit (effet de bord voulu) pour initialiser AppKit et récupérer wagmiConfig.
 import { wagmiConfig } from "./appkitConfig";
 import App from "./App";
 import "./index.css";

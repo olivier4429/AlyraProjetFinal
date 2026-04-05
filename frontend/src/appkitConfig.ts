@@ -3,7 +3,7 @@ import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
 import { sepolia } from "@reown/appkit/networks";
 import type { AppKitNetwork } from "@reown/appkit/networks";
 
-// Récupérer sur https://cloud.reown.com
+// Récupéré sur https://cloud.reown.com
 const projectId = import.meta.env.VITE_REOWN_PROJECT_ID;
 
 if (!projectId) {
@@ -11,7 +11,7 @@ if (!projectId) {
     "VITE_REOWN_PROJECT_ID manquant. Copiez .env.example vers .env et renseignez votre project ID."
   );
 }
-
+//pour forcer à la compilation que le tableau contient au moins un réseau, on utilise une tuple avec un élément obligatoire suivi de zéro ou plusieurs éléments optionnels
 const networks: [AppKitNetwork, ...AppKitNetwork[]] = [sepolia];
 
 export const wagmiAdapter = new WagmiAdapter({
