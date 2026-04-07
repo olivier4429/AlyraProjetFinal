@@ -1,6 +1,6 @@
 import { createAppKit } from "@reown/appkit/react";
 import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
-import { sepolia } from "@reown/appkit/networks";
+import { sepolia, hardhat } from "@reown/appkit/networks";
 import type { AppKitNetwork } from "@reown/appkit/networks";
 
 // Récupéré sur https://cloud.reown.com
@@ -12,7 +12,8 @@ if (!projectId) {
   );
 }
 //pour forcer à la compilation que le tableau contient au moins un réseau, on utilise une tuple avec un élément obligatoire suivi de zéro ou plusieurs éléments optionnels
-const networks: [AppKitNetwork, ...AppKitNetwork[]] = [sepolia];
+//c'est une obligation de reown qui veut qu'il y ait au moins un réseau dans la configuration.
+const networks: [AppKitNetwork, ...AppKitNetwork[]] = [sepolia, hardhat];
 
 export const wagmiAdapter = new WagmiAdapter({
   networks,

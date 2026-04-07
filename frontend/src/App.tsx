@@ -1,25 +1,18 @@
-import { useConnection } from 'wagmi'
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Layout from "./components/layout/Layout";
+import HomePage from "./pages/HomePage";
+import InscriptionPage from "./pages/InscriptionPage";
+
 function App() {
-  const { address, isConnected } = useConnection();
-
   return (
-    <div className="app">
-      <header>
-        <h1>AuditRegistry</h1>
-        <div className="wallet">
-          <appkit-network-button />
-          <appkit-button />
-        </div>
-      </header>
-
-      <main>
-        {isConnected ? (
-          <p>Connecté : {address}</p>
-        ) : (
-          <p>Connectez votre wallet pour commencer.</p>
-        )}
-      </main>
-    </div>
+    <BrowserRouter>
+      <Layout>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/inscription" element={<InscriptionPage />} />
+        </Routes>
+      </Layout>
+    </BrowserRouter>
   );
 }
 

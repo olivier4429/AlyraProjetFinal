@@ -8,7 +8,13 @@ import { wagmiConfig } from "./appkitConfig";
 import App from "./App";
 import "./index.css";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60, // 1 minute — évite les refetch en boucle qui font tourner le spinner AppKit
+    },
+  },
+});
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

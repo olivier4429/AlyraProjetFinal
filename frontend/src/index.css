@@ -1,41 +1,30 @@
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+@import "tailwindcss";
+
+@theme {
+  --color-bg-base: #0A0E1A;
+  --color-bg-card: #111827;
+  --color-bg-input: #1F2937;
+  --color-border-subtle: #374151;
+  --color-border-medium: #4B5563;
+  --color-brand-blue: #3B82F6;
+  --color-brand-cyan: #22D3EE;
+  --color-brand-amber: #F59E0B;
+  --color-brand-rose: #FB7185;
+  --color-brand-indigo: #818CF8;
+  --color-brand-emerald: #34D399;
+  --font-mono: "Space Mono", monospace;
+  --font-display: "Syne", sans-serif;
 }
 
 body {
-  font-family: Inter, system-ui, sans-serif;
-  background: #0f0f0f;
-  color: #efefef;
+  background-color: #0A0E1A;
+  color: #F9FAFB;
+  font-family: "Syne", sans-serif;
   min-height: 100vh;
 }
 
-.app {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
-}
-
-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-bottom: 2rem;
-  border-bottom: 1px solid #333;
-}
-
-header h1 {
-  font-size: 1.5rem;
-  font-weight: 700;
-}
-
-.wallet {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-main {
-  padding-top: 2rem;
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }

@@ -12,7 +12,7 @@ interface ImportMeta {
 declare namespace JSX {
   interface IntrinsicElements {
     "appkit-button": React.DetailedHTMLProps<
-      React.HTMLAttributes<HTMLElement>,
+      React.HTMLAttributes<HTMLElement> & { balance?: "show" | "hide" },
       HTMLElement
     >;
     "appkit-network-button": React.DetailedHTMLProps<
