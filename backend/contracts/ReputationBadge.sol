@@ -238,9 +238,8 @@ contract ReputationBadge is ERC721, Ownable {
             : 0;
         emit MetadataUpdate(tokenId); // EIP-4906 : signaler que les metadata ont été mises à jour
     }
-
     //----------------------------------------------------------
-    //Soulbound token : override des fonctions de transfert pour empêcher le transfert du badge de réputation
+    //Fin fonctions de calcul de la réputation
     //----------------------------------------------------------
 
     /**
@@ -258,12 +257,8 @@ contract ReputationBadge is ERC721, Ownable {
         return super._update(to, tokenId, auth);
     }
 
-    //----------------------------------------------------------
-    //Pour préciser les interfaces supportées par le contrat, notamment pour indiquer que c'est un SoulBound token (EIP-5192) et qu'il supporte la mise à jour des metadata (EIP-4906)
-    //----------------------------------------------------------
-
     /**
-     * @notice Déclare les interfaces supportées (ERC-165)
+     * @notice Déclare les interfaces supportées (ERC-165). Celles qui ne sont pas héritées: pour indiquer que c'est un SoulBound token (EIP-5192) et qu'il supporte la mise à jour des metadata (EIP-4906)
      * @dev 0xb45a3c0e = EIP-5192 (soul-bound)
      *      0x49064906 = EIP-4906 (metadata update)
      *      super gère ERC-721 (0x80ac58cd) et ERC-165 (0x01ffc9a7)
@@ -278,8 +273,8 @@ contract ReputationBadge is ERC721, Ownable {
     }
 
     /**
-     * @notice Retourne true si le token est verrouillé — toujours true (EIP-5192)
-     * @dev Requis par EIP-5192 — permet aux marketplaces de détecter le soul-bound sans tenter un transfert qui echouerait
+     * @notice Retourne true si le token est verrouillé : toujours true pour ce NFT (EIP-5192)
+     * @dev Requis par EIP-5192 : permet aux marketplaces de détecter le soul-bound sans tenter un transfert qui echouerait
      */
     function locked(uint256 tokenId) external view returns (bool) {
         if (_ownerOf(tokenId) == address(0))
