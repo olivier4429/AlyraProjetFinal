@@ -1,3 +1,6 @@
+# Variables d'environnement (clés privées — ne jamais committer)
+.env
+
 # Node modules
 /node_modules
 
