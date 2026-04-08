@@ -127,6 +127,53 @@ Approximation via `Math.log10()` d'OpenZeppelin (entier, pas de virgule flottant
 
 ---
 
+## Démarrage rapide
+
+### Tests backend
+
+```bash
+cd backend
+npm install
+npx hardhat test
+```
+
+### Développement local (frontend + contrats)
+
+**Terminal 1 — nœud Hardhat**
+
+```bash
+cd backend
+npx hardhat node
+```
+
+**Terminal 2 — déploiement + seed**
+
+```bash
+cd backend
+npx hardhat run scripts/seed.ts --network localhost
+```
+
+Déploie tous les contrats, inscrit 4 auditeurs de test et met à jour automatiquement `frontend/src/constants/contracts.ts`.
+
+**Terminal 3 — frontend**
+
+```bash
+cd frontend
+npm install
+cp .env.example .env   # renseigner VITE_REOWN_PROJECT_ID
+npm run dev
+```
+
+### Déploiement sur Sepolia
+
+```bash
+# Créer backend/.env avec PRIVATE_KEY et SEPOLIA_RPC_URL
+cd backend
+npx hardhat run scripts/seed.ts --network sepolia
+```
+
+---
+
 ## Stack technique
 
 **Backend / Blockchain**
