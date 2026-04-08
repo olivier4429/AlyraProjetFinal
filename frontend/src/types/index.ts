@@ -1,16 +1,5 @@
-export type Specialty =
-  | "DeFi"
-  | "NFT"
-  | "DAO"
-  | "Bridge"
-  | "Staking"
-  | "Lending"
-  | "DEX"
-  | "Oracle"
-  | "Governance"
-  | "Layer2";
-
 import type { Address } from "viem";
+
 
 export interface Auditor {
   address: Address;

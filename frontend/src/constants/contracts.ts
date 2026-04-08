@@ -1,22 +1,7 @@
-import type { Specialty } from "../types";
+import type { Address } from "viem";
 
-// TODO: Remplacer par les vraies adresses après déploiement
-export const AUDIT_REGISTRY_ADDRESS =
-  "0x0000000000000000000000000000000000000000" as const;
+export const AUDIT_REGISTRY_ADDRESS = import.meta.env
+  .VITE_AUDIT_REGISTRY_ADDRESS as Address;
 
-// TODO: Remplacer par la vraie adresse après déploiement
-export const REPUTATION_BADGE_ADDRESS =
-  "0x0000000000000000000000000000000000000000" as const;
-
-export const SPECIALTIES: Specialty[] = [
-  "DeFi",
-  "NFT",
-  "DAO",
-  "Bridge",
-  "Staking",
-  "Lending",
-  "DEX",
-  "Oracle",
-  "Governance",
-  "Layer2",
-];
+export const REPUTATION_BADGE_ADDRESS = import.meta.env
+  .VITE_REPUTATION_BADGE_ADDRESS as Address;

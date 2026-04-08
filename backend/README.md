@@ -73,15 +73,29 @@ Puis inscrit les 4 auditeurs de test :
 
 ### Sur Sepolia
 
+**Prérequis 1 — keystore Hardhat** (déployeur)
+
+`SEPOLIA_RPC_URL` et `SEPOLIA_PRIVATE_KEY` doivent être enregistrés dans le keystore Hardhat :
+
 ```bash
-npx hardhat run scripts/seed.ts --network sepolia
+npx hardhat keystore set SEPOLIA_RPC_URL
+npx hardhat keystore set SEPOLIA_PRIVATE_KEY
 ```
 
-Prérequis : créer un fichier `.env` à la racine du dossier `backend/` :
+**Prérequis 2 — fichier `.env`** (auditeurs de test)
 
-```env
-PRIVATE_KEY=0x...          # clé privée du compte déployeur
-SEPOLIA_RPC_URL=https://...  # URL RPC Sepolia (Alchemy, Infura…)
+Copier `.env.example` vers `.env` et renseigner les clés privées des 4 comptes auditeurs.
+Ces comptes doivent avoir un peu d'ETH Sepolia pour payer les frais de gas.
+
+```bash
+cp .env.example .env
+# Renseigner AUDITOR_1_PRIVATE_KEY … AUDITOR_4_PRIVATE_KEY
+```
+
+**Lancement :**
+
+```bash
+npx hardhat run scripts/seed.ts --network sepolia
 ```
 
 ---

@@ -167,8 +167,16 @@ npm run dev
 ### Déploiement sur Sepolia
 
 ```bash
-# Créer backend/.env avec PRIVATE_KEY et SEPOLIA_RPC_URL
+# 1. Enregistrer le déployeur dans le keystore Hardhat
 cd backend
+npx hardhat keystore set SEPOLIA_RPC_URL
+npx hardhat keystore set SEPOLIA_PRIVATE_KEY
+
+# 2. Configurer les comptes auditeurs de test
+cp .env.example .env
+# Renseigner AUDITOR_1..4_PRIVATE_KEY dans .env (comptes avec ETH Sepolia)
+
+# 3. Lancer le seed
 npx hardhat run scripts/seed.ts --network sepolia
 ```
 

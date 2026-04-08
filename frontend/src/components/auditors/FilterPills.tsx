@@ -1,4 +1,4 @@
-import { SPECIALTIES } from "../../constants/contracts";
+import { SPECIALTIES } from "../../constants/config";
 import type { Specialty } from "../../types";
 
 interface FilterPillsProps {

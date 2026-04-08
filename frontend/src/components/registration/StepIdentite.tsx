@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { SPECIALTIES } from "../../constants/contracts";
+import { SPECIALTIES } from "../../constants/config";
 import type { Specialty } from "../../types";
 import Badge, { getVariantForSpecialty } from "../ui/Badge";
 import Alert from "../ui/Alert";
