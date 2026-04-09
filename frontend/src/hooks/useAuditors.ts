@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { usePublicClient } from "wagmi";
+import { usePublicClient, useWatchContractEvent } from "wagmi";
 import { getAddress } from "viem";
 import type { Address } from "viem";
 import { AUDIT_REGISTRY_ABI } from "../abi/AuditRegistry";
@@ -11,9 +11,8 @@ import type { Auditor, Specialty } from "../types";
  * Lit la liste complète des auditeurs depuis la blockchain.
  *
  * Stratégie :
- *  1. getLogs(AuditorRegistered)        → adresse + pseudo + spécialités initiales
- *  2. getLogs(AuditorSpecialtiesUpdated) → surcharge les spécialités si mises à jour
- *  3. readContract(getAuditorData) par adresse → score, compteurs, isActive
+ *  1. getContractEvents historiques au montage → tous les auditeurs inscrits depuis le déploiement
+ *  2. useWatchContractEvent en temps réel → mise à jour automatique sans rechargement
  */
 export function useAuditors() {
   const publicClient = usePublicClient();
@@ -21,7 +20,37 @@ export function useAuditors() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  // useEffect se déclenche une fois au montage du composant qui utilise useAuditors, puis à chaque fois que publicClient change : quand l'utilisateur change de réseau.
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  async function fetchAuditorData(addr: Address) {
+    return publicClient!.readContract({
+      address: REPUTATION_BADGE_ADDRESS,
+      abi: REPUTATION_BADGE_ABI,
+      functionName: "getAuditorData",
+      args: [addr],
+    }).catch(() => null);
+  }
+
+  function buildAuditor(
+    addr: Address,
+    pseudo: string,
+    specialties: string[],
+    data: { registrationDate: bigint; reputationScore: bigint; totalAudits: number; totalExploits: number; isActive: boolean }
+  ): Auditor {
+    return {
+      address: addr,
+      pseudo,
+      specialties: specialties as Specialty[],
+      reputationScore: Number(data.reputationScore),
+      totalAudits: Number(data.totalAudits),
+      totalExploits: Number(data.totalExploits),
+      registrationDate: Number(data.registrationDate),
+      isActive: data.isActive,
+    };
+  }
+
+  // ── 1. Chargement historique ────────────────────────────────────────────────
+
   useEffect(() => {
     if (!publicClient || !AUDIT_REGISTRY_ADDRESS) return;
 
@@ -32,91 +61,63 @@ export function useAuditors() {
       setError(null);
 
       try {
-        // 1. Tous les events AuditorRegistered
-        const registeredLogs = await publicClient!.getLogs({
-          address: AUDIT_REGISTRY_ADDRESS,
-          event: AUDIT_REGISTRY_ABI.find((e) => e.name === "AuditorRegistered" && e.type === "event") as never,
-          fromBlock: DEPLOY_BLOCK,
-          toBlock: "latest",
-        });
-
-        // 2. Tous les events AuditorSpecialtiesUpdated
-        const updatedLogs = await publicClient!.getLogs({
-          address: AUDIT_REGISTRY_ADDRESS,
-          event: AUDIT_REGISTRY_ABI.find((e) => e.name === "AuditorSpecialtiesUpdated" && e.type === "event") as never,
-          fromBlock: DEPLOY_BLOCK,
-          toBlock: "latest",
-        });
+        const [registeredLogs, updatedLogs] = await Promise.all([
+          publicClient!.getContractEvents({
+            address: AUDIT_REGISTRY_ADDRESS,
+            abi: AUDIT_REGISTRY_ABI,
+            eventName: "AuditorRegistered",
+            fromBlock: DEPLOY_BLOCK,
+            toBlock: "latest",
+          }),
+          publicClient!.getContractEvents({
+            address: AUDIT_REGISTRY_ADDRESS,
+            abi: AUDIT_REGISTRY_ABI,
+            eventName: "AuditorSpecialtiesUpdated",
+            fromBlock: DEPLOY_BLOCK,
+            toBlock: "latest",
+          }),
+        ]);
 
         // Map adresse → { pseudo, specialties }
-        const auditorMap = new Map<string, { pseudo: string; specialties: string[] }>();
+        const metaMap = new Map<string, { pseudo: string; specialties: string[] }>();
 
         for (const log of registeredLogs) {
-          const args = log.args as { auditor: Address; pseudo: string; specialties: string[] };
-          const addr = getAddress(args.auditor);
-          auditorMap.set(addr, { pseudo: args.pseudo, specialties: args.specialties ?? [] });
+          const { auditor, pseudo, specialties } = log.args;
+          if (!auditor) continue;
+          metaMap.set(getAddress(auditor), {
+            pseudo: pseudo ?? "",
+            specialties: specialties ? [...specialties] : [],
+          });
         }
 
-        // Surcharger les spécialités si l'auditeur les a mises à jour
         for (const log of updatedLogs) {
-          const args = log.args as { auditor: Address; specialties: string[] };
-          const addr = getAddress(args.auditor);
-          const existing = auditorMap.get(addr);
+          const { auditor, specialties } = log.args;
+          if (!auditor) continue;
+          const existing = metaMap.get(getAddress(auditor));
           if (existing) {
-            auditorMap.set(addr, { ...existing, specialties: args.specialties ?? [] });
+            metaMap.set(getAddress(auditor), {
+              ...existing,
+              specialties: specialties ? [...specialties] : [],
+            });
           }
         }
 
-        const addresses = [...auditorMap.keys()] as Address[];
+        if (cancelled) return;
+
+        const addresses = [...metaMap.keys()] as Address[];
+
+        const results = await Promise.all(addresses.map(fetchAuditorData));
 
         if (cancelled) return;
 
-        if (addresses.length === 0) {
-          setAuditors([]);
-          setIsLoading(false);
-          return;
-        }
-
-        // 3. Un readContract par adresse (pas de multicall : fonctionne sur tous les réseaux)
-        const results = await Promise.all(
-          addresses.map((addr) =>
-            publicClient!.readContract({
-              address: REPUTATION_BADGE_ADDRESS,
-              abi: REPUTATION_BADGE_ABI,
-              functionName: "getAuditorData",
-              args: [addr],
-            }).catch(() => null)
-          )
-        );
-
-        if (cancelled) return;
-
-        const auditorList: Auditor[] = addresses.flatMap((addr, i) => {
-          const data = results[i] as {
-            registrationDate: bigint;
-            reputationScore: bigint;
-            totalAudits: number;
-            totalExploits: number;
-            isActive: boolean;
-          } | null;
-
+        const list: Auditor[] = addresses.flatMap((addr, i) => {
+          const data = results[i] as Parameters<typeof buildAuditor>[3] | null;
           if (!data) return [];
-
-          const { pseudo, specialties } = auditorMap.get(addr)!;
-
-          return [{
-            address: addr,
-            pseudo,
-            specialties: specialties as Specialty[],
-            reputationScore: Number(data.reputationScore),
-            totalAudits: Number(data.totalAudits),
-            totalExploits: Number(data.totalExploits),
-            registrationDate: Number(data.registrationDate),
-            isActive: data.isActive,
-          }];
+          const { pseudo, specialties } = metaMap.get(addr)!;
+          return [buildAuditor(addr, pseudo, specialties, data)];
         });
 
-        setAuditors(auditorList);
+        setAuditors(list);
       } catch (err) {
         if (!cancelled) setError(err as Error);
       } finally {
@@ -127,6 +128,54 @@ export function useAuditors() {
     load();
     return () => { cancelled = true; };
   }, [publicClient]);
+
+  // ── 2. Mise à jour temps réel : nouvelle inscription ───────────────────────
+
+  useWatchContractEvent({
+    address: AUDIT_REGISTRY_ADDRESS,
+    abi: AUDIT_REGISTRY_ABI,
+    eventName: "AuditorRegistered",
+    onLogs: async (logs) => {
+      for (const log of logs) {
+        const { auditor, pseudo, specialties } = log.args;
+        if (!auditor) continue;
+        const addr = getAddress(auditor);
+
+        // Ne pas dupliquer si déjà présent
+        if (auditors.some((a) => a.address === addr)) continue;
+
+        const data = await fetchAuditorData(addr);
+        if (!data) continue;
+
+        setAuditors((prev) => [
+          ...prev,
+          buildAuditor(addr, pseudo ?? "", specialties ? [...specialties] : [], data as Parameters<typeof buildAuditor>[3]),
+        ]);
+      }
+    },
+  });
+
+  // ── 3. Mise à jour temps réel : spécialités modifiées ─────────────────────
+
+  useWatchContractEvent({
+    address: AUDIT_REGISTRY_ADDRESS,
+    abi: AUDIT_REGISTRY_ABI,
+    eventName: "AuditorSpecialtiesUpdated",
+    onLogs: (logs) => {
+      for (const log of logs) {
+        const { auditor, specialties } = log.args;
+        if (!auditor) continue;
+        const addr = getAddress(auditor);
+        setAuditors((prev) =>
+          prev.map((a) =>
+            a.address === addr
+              ? { ...a, specialties: (specialties ? [...specialties] : []) as Specialty[] }
+              : a
+          )
+        );
+      }
+    },
+  });
 
   return { auditors, isLoading, error };
 }

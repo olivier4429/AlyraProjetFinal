@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useReadContract, usePublicClient } from "wagmi";
+import { useReadContract, usePublicClient, useWatchContractEvent } from "wagmi";
 import { formatUnits } from "viem";
 import { AUDIT_REGISTRY_ABI } from "../abi/AuditRegistry";
 import { AUDIT_REGISTRY_ADDRESS, DEPLOY_BLOCK } from "../constants/contracts";
@@ -14,13 +14,13 @@ interface ProtocolStats {
 
 /**
  * Calcule les stats du protocole à partir des données on-chain.
- * - auditCount         : lu directement sur AuditRegistry
+ * - auditCount         : useReadContract sur AuditRegistry
  * - exploitFreePercent : dérivé de la liste des auditeurs passée en paramètre
- * - totalVolumeUsdc    : somme des events AuditDeposited
+ * - totalVolumeUsdc    : events AuditDeposited historiques + watch temps réel
  */
 export function useProtocolStats(auditors: Auditor[]): ProtocolStats {
   const publicClient = usePublicClient();
-  const [totalVolumeUsdc, setTotalVolumeUsdc] = useState<string>("—");
+  const [rawVolume, setRawVolume] = useState(0n);
 
   const { data: auditCountRaw } = useReadContract({
     address: AUDIT_REGISTRY_ADDRESS,
@@ -29,31 +29,36 @@ export function useProtocolStats(auditors: Auditor[]): ProtocolStats {
     query: { enabled: !!AUDIT_REGISTRY_ADDRESS },
   });
 
-  // Volume total : somme des amounts dans les events AuditDeposited
-  // useEffect se déclenche une fois au montage du composant qui utilise useProtocolStats, puis à chaque fois que publicClient change : quand l'utilisateur change de réseau.
+  // ── 1. Volume historique ──────────────────────────────────────────────────
+
   useEffect(() => {
     if (!publicClient || !AUDIT_REGISTRY_ADDRESS) return;
 
-    publicClient.getLogs({
+    publicClient.getContractEvents({
       address: AUDIT_REGISTRY_ADDRESS,
-      event: AUDIT_REGISTRY_ABI.find(
-        (e) => e.name === "AuditDeposited" && e.type === "event"
-      ) as never,
+      abi: AUDIT_REGISTRY_ABI,
+      eventName: "AuditDeposited",
       fromBlock: DEPLOY_BLOCK,
-        toBlock: "latest",
+      toBlock: "latest",
     }).then((logs) => {
-      const total = logs.reduce((sum, log) => {
-        const args = log.args as { amount?: bigint };
-        return sum + (args.amount ?? 0n);
-      }, 0n);
-
-      // USDC = 6 décimales. Arrondi à l'entier.
-      const formatted = Math.round(Number(formatUnits(total, 6)));
-      setTotalVolumeUsdc(
-        formatted > 0 ? `${formatted.toLocaleString("fr-FR")} USDC` : "—"
-      );
-    }).catch(() => setTotalVolumeUsdc("—"));
+      const total = logs.reduce((sum, log) => sum + (log.args.amount ?? 0n), 0n);
+      setRawVolume(total);
+    }).catch(() => {});
   }, [publicClient]);
+
+  // ── 2. Volume temps réel ──────────────────────────────────────────────────
+
+  useWatchContractEvent({
+    address: AUDIT_REGISTRY_ADDRESS,
+    abi: AUDIT_REGISTRY_ABI,
+    eventName: "AuditDeposited",
+    onLogs: (logs) => {
+      const added = logs.reduce((sum, log) => sum + (log.args.amount ?? 0n), 0n);
+      setRawVolume((prev) => prev + added);
+    },
+  });
+
+  // ── Calculs ───────────────────────────────────────────────────────────────
 
   const auditorCount = auditors.length;
   const auditCount = auditCountRaw !== undefined ? Number(auditCountRaw) : 0;
@@ -61,6 +66,11 @@ export function useProtocolStats(auditors: Auditor[]): ProtocolStats {
   const exploitFreeCount = auditors.filter((a) => a.totalExploits === 0).length;
   const exploitFreePercent =
     auditorCount > 0 ? Math.round((exploitFreeCount / auditorCount) * 100) : 0;
+
+  const totalVolumeUsdc =
+    rawVolume > 0n
+      ? `${Math.round(Number(formatUnits(rawVolume, 6))).toLocaleString("fr-FR")} USDC`
+      : "—";
 
   return { auditorCount, auditCount, exploitFreePercent, totalVolumeUsdc };
 }
