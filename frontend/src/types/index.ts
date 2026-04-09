@@ -1,5 +1,8 @@
 import type { Address } from "viem";
 
+import type { Specialty } from "../constants/config";
+
+export type { Specialty };
 
 export interface Auditor {
   address: Address;
