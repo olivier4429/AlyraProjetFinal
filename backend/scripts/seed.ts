@@ -1,5 +1,5 @@
 /**
- * Script de seed — déploie tous les contrats et inscrit des auditeurs de test.
+ * Script de seed : déploie tous les contrats et inscrit des auditeurs de test.
  *
  * Usage :
  *   npx hardhat run scripts/seed.ts --network localhost  (nœud Hardhat local)
@@ -63,30 +63,40 @@ const walletClients = await viem.getWalletClients();
 let auditorAccounts: Account[];
 let requesterAccounts: Account[];
 
+// Les clés privées sont indispensables ici car ces comptes doivent SIGNER des transactions :
+//   - auditeurs  signe pour registerAuditor()  : le contrat utilise msg.sender comme identité de l'auditeur
+//   - demandeurs signe pour depositAudit()     : le contrat utilise msg.sender comme requester de l'audit
+// Une adresse publique seule ne suffit pas pour signer.
 const auditorEnvKeys = [
   process.env.AUDITOR_1_PRIVATE_KEY,
   process.env.AUDITOR_2_PRIVATE_KEY,
   process.env.AUDITOR_3_PRIVATE_KEY,
   process.env.AUDITOR_4_PRIVATE_KEY,
-];
+].filter((k): k is string => !!k && k.length > 0); //Filter afin de retirer de potentiels éléments indéfinis ou vides.
 
+// Les demandeurs d'audit. Ici on en prévoit 2 pour alimenter les activités de test.
 const requesterEnvKeys = [
-  process.env.AUDITOR_1_PRIVATE_KEY,
-  process.env.AUDITOR_2_PRIVATE_KEY
-];
+  process.env.DEMANDEUR_1_PRIVATE_KEY,
+  process.env.DEMANDEUR_2_PRIVATE_KEY,
+].filter((k): k is string => !!k && k.length > 0);
 
-if (auditorEnvKeys.length > 0) {
+const isLocalNetwork = networkName === "localhost" || networkName === "hardhat";
+
+if (!isLocalNetwork && auditorEnvKeys.length > 0) {
   // Réseau externe (Sepolia…) : clés privées dédiées depuis .env
   auditorAccounts = auditorEnvKeys.map((k) => privateKeyToAccount(k as Hex));
   requesterAccounts = requesterEnvKeys.map((k) => privateKeyToAccount(k as Hex));
   console.log(
-    `👛 Auditeurs : ${auditorAccounts.length} compte(s) depuis AUDITOR_N_PRIVATE_KEY (.env)\n`
+    `👛 Auditeurs  : ${auditorAccounts.length} compte(s) depuis AUDITOR_N_PRIVATE_KEY (.env)`
+  );
+  console.log(
+    `👛 Demandeurs : ${requesterAccounts.length} compte(s) depuis DEMANDEUR_N_PRIVATE_KEY (.env)\n`
   );
 } else {
-  // Réseau local Hardhat : comptes pré-financés accounts[1..4]
+  // Réseau local Hardhat : comptes pré-financés (accounts[1..4] auditeurs, [5..6] demandeurs)
   auditorAccounts = walletClients.slice(1, 5).map((wc) => wc.account);
-  requesterAccounts = [walletClients[6].account];
-  console.log("👛 Auditeurs : comptes Hardhat locaux (accounts[1..4])\n");
+  requesterAccounts = walletClients.slice(5, 7).map((wc) => wc.account);
+  console.log("👛 Auditeurs + demandeurs : comptes Hardhat locaux\n");
 }
 
 // =========================================================================
@@ -111,10 +121,10 @@ console.log(`  ✅ MockUSDC        : ${mockUsdc.address}`);
 const mockTreasury = await viem.deployContract("MockTreasury");
 console.log(`  ✅ MockTreasury    : ${mockTreasury.address}`);
 
-const mockEscrow = await viem.deployContract("MockAuditEscrow", [
-  mockUsdc.address,
-]);
-console.log(`  ✅ MockAuditEscrow : ${mockEscrow.address}`);
+// AuditEscrow déployé sans l'adresse de la Registry (dépendance circulaire)
+// setRegistryAddress() sera appelé après le déploiement d'AuditRegistry
+const escrow = await viem.deployContract("AuditEscrow", [mockUsdc.address]);
+console.log(`  ✅ AuditEscrow     : ${escrow.address}`);
 
 const mockDao = await viem.deployContract("MockDAOVoting");
 console.log(`  ✅ MockDAOVoting   : ${mockDao.address}`);
@@ -123,17 +133,21 @@ const registry = await viem.deployContract("AuditRegistry", [
   reputationBadge.address,
   mockUsdc.address,
   mockTreasury.address,
-  mockEscrow.address,
+  escrow.address,
   mockDao.address,
 ]);
 console.log(`  ✅ AuditRegistry   : ${registry.address}`);
 
-// Lier ReputationBadge à AuditRegistry
+// Lier ReputationBadge et AuditEscrow à AuditRegistry (résolution de la dépendance circulaire)
 const publicClient = await viem.getPublicClient();
 
-const linkHash = await reputationBadge.write.setRegistryAddress([registry.address]);
-await publicClient.waitForTransactionReceipt({ hash: linkHash });
-console.log(`\n🔗 ReputationBadge lié à AuditRegistry`);
+const linkBadgeHash = await reputationBadge.write.setRegistryAddress([registry.address]);
+await publicClient.waitForTransactionReceipt({ hash: linkBadgeHash });
+
+const linkEscrowHash = await escrow.write.setRegistryAddress([registry.address]);
+await publicClient.waitForTransactionReceipt({ hash: linkEscrowHash });
+
+console.log(`\n🔗 ReputationBadge + AuditEscrow liés à AuditRegistry`);
 
 // =========================================================================
 // Inscription des auditeurs
@@ -159,24 +173,45 @@ for (let i = 0; i < registrationCount; i++) {
 // Génération d'activités pour l'auditeur 1 avec le demandeur 1
 // =========================================================================
 
-console.log("\n👤 Génération d'activités pour l'auditeur 1...");
+console.log("\n📋 Génération d'activités pour l'auditeur 1...");
 const auditor1 = auditorAccounts[0];
 const requester1 = requesterAccounts[0];
-const GUARANTEE_DURATION = 90n * 24n * 60n * 60n; // 90 jours
-const VALID_CID = keccak256(encodePacked(["string"], ["CIDdurapportdauditvalide"])); //CID du rapport d'audit valide
-//partons du principe que l'auditeur 1 a audité le contrat mockTreasury
-await registry.write.depositAudit(
-  [auditor1.address, mockTreasury.address, VALID_CID, parseUnits("100", 6)],
+const AUDIT_AMOUNT = parseUnits("100", 6); // 100 USDC
+const GUARANTEE_DURATION = 1n; // 1 seconde, on met une garanitie très courte pour accélérer le seed et valider rapidement l'audit. En conditions réelles, ce serait plusieurs jours/mois.s
+const VALID_CID = keccak256(encodePacked(["string"], ["CIDdurapportdauditvalide"]));
+
+// Étape 1 : Mint USDC au requester (MockUSDC est mintable librement)
+// Clé privée NON requise ici : n'importe qui peut appeler mint() sur le mock
+const mintHash = await mockUsdc.write.mint([requester1.address, AUDIT_AMOUNT]);
+await publicClient.waitForTransactionReceipt({ hash: mintHash });
+
+// Étape 2 : Approbation : le requester autorise AuditRegistry à prélever ses USDC
+// Clé privée requester1 requise : approve() utilise msg.sender comme propriétaire des fonds
+const approveHash = await mockUsdc.write.approve(
+  [registry.address, AUDIT_AMOUNT],
   { account: requester1 }
 );
-await registry.write.validateAudit(
+await publicClient.waitForTransactionReceipt({ hash: approveHash });
+
+// Étape 3 : Dépôt de l'audit
+// Clé privée requester1 requise : depositAudit() utilise msg.sender comme requester
+const depositHash = await registry.write.depositAudit(
+  [auditor1.address, mockUsdc.address, VALID_CID, AUDIT_AMOUNT],
+  { account: requester1 }
+);
+await publicClient.waitForTransactionReceipt({ hash: depositHash });
+
+// Étape 4 : Validation de l'audit
+// Clé privée auditor1 requise : validateAudit() vérifie msg.sender == audit.auditor
+// C'est ici que incAudits() est appelé → le score de réputation est calculé et mis à jour
+const validateHash = await registry.write.validateAudit(
   [1n, GUARANTEE_DURATION],
   { account: auditor1 }
 );
-const generateActivityHash = await registry.write.generateActivity([auditor1.account.address], { account: auditor1.account });
-await publicClient.waitForTransactionReceipt({ hash: generateActivityHash });
+await publicClient.waitForTransactionReceipt({ hash: validateHash });
 
-console.log(`  ✅ Activité générée pour l'auditeur 1`);
+const auditorData = await reputationBadge.read.getAuditorData([auditor1.address]);
+console.log(`  ✅ Audit déposé et validé : score auditeur 1 : ${auditorData.reputationScore} pts`);
 
 
 
@@ -213,5 +248,5 @@ console.log(`  AuditRegistry   : ${registry.address}`);
 console.log(`  ReputationBadge : ${reputationBadge.address}`);
 console.log(`  MockUSDC        : ${mockUsdc.address}`);
 console.log(`  MockTreasury    : ${mockTreasury.address}`);
-console.log(`  MockAuditEscrow : ${mockEscrow.address}`);
+console.log(`  AuditEscrow     : ${escrow.address}`);
 console.log(`  MockDAOVoting   : ${mockDao.address}`);

@@ -4,6 +4,53 @@ pragma solidity ^0.8.28;
 /**
  * @title MockDAOVoting
  * @notice contrôle des incidents pour les tests
+ *
+ * ============================================================
+ * FLUX FINANCIERS  (exemple sur un dépôt de 100 USDC)
+ * ============================================================
+ *
+ *  PHASE 4 : depositAudit()
+ *  ─────────────────────────────────────────────────────────
+ *  Requester ──[100 USDC]──► AuditRegistry
+ *                                  │
+ *                     ┌────────────┴────────────┐
+ *                     ▼                         ▼
+ *               Treasury (5%)            AuditEscrow (95%)
+ *                5 USDC                    95 USDC
+ *
+ *  PHASE 5 : validateAudit()  →  lockFunds()
+ *  ─────────────────────────────────────────────────────────
+ *  AuditRegistry ──────────────────────► AuditEscrow
+ *                                          │
+ *                             ┌────────────┴────────────┐
+ *                             ▼                         ▼
+ *                     Paiement immédiat          Retenue de garantie
+ *                       70% = 66.5 USDC            30% = 28.5 USDC
+ *                     (claimable aussitôt)       (bloqué jusqu'à guaranteeEnd)
+ *
+ *  PHASE 5b : claimPayment()  (pull payment, pas de délai)
+ *  ─────────────────────────────────────────────────────────
+ *  Auditeur ──► AuditRegistry ──► AuditEscrow.releasePayment()
+ *  Auditeur ◄──[66.5 USDC]──────────────────────────────────
+ *
+ *  PHASE 5c : claimGuarantee()  (après guaranteeEnd)
+ *  ─────────────────────────────────────────────────────────
+ *  Auditeur ──► AuditRegistry ──► AuditEscrow.releaseGuarantee()
+ *  Auditeur ◄──[28.5 USDC]──────────────────────────────────
+ *
+ *  PHASE 5d : claimRefundAfterTimeout()  (si pas de validation sous 10j)
+ *  ─────────────────────────────────────────────────────────
+ *  Requester ──► AuditRegistry ──► AuditEscrow.refund()
+ *  Requester ◄──[95 USDC]──────────────────────────────────
+ *  Note : les 5 USDC Treasury ne sont pas remboursés
+ *
+ *  CAS EXPLOIT : resolveIncident(validated=true)
+ *  ─────────────────────────────────────────────────────────
+ *  DAOVoting ──► AuditRegistry ──► ReputationBadge.incExploits()
+ *  Note : la libération des 28.5 USDC vers le requester
+ *         est gérée par AuditEscrow (hors scope de cette Registry)
+ *
+ * ============================================================
  */
 contract MockDAOVoting {
 

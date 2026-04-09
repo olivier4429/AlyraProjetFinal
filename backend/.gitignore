@@ -1,4 +1,4 @@
-# Variables d'environnement (clés privées — ne jamais committer)
+# Variables d'environnement (clés privées : ne jamais committer)
 .env
 
 # Node modules

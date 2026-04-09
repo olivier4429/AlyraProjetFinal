@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol"; //Pas tres utile car les contracts appelés sont le contrat USDC ou les contrats que j'ai développés
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol"; //Pour les USDC
 import "./ReputationBadge.sol";
+import "./AuditEscrow.sol";
 
 /**
  * @title AuditRegistry
@@ -14,6 +15,53 @@ import "./ReputationBadge.sol";
  *         la validation, et le signalement d'exploits.
  * @dev Ce contrat interagit avec ReputationBadge, AuditEscrow, DAOVoting.
  *      Il utilise des USDC 6 digits. Attention : ETH est sur 18 digits.
+ *
+ * ============================================================
+ * FLUX FINANCIERS  (exemple sur un dépôt de 100 USDC)
+ * ============================================================
+ *
+ *  PHASE 4 : depositAudit()
+ *  ─────────────────────────────────────────────────────────
+ *  Requester ──[100 USDC]──► AuditRegistry
+ *                                  │
+ *                     ┌────────────┴────────────┐
+ *                     ▼                         ▼
+ *               Treasury (5%)            AuditEscrow (95%)
+ *                5 USDC                    95 USDC
+ *
+ *  PHASE 5 : validateAudit()  →  lockFunds()
+ *  ─────────────────────────────────────────────────────────
+ *  AuditRegistry ──────────────────────► AuditEscrow
+ *                                          │
+ *                             ┌────────────┴────────────┐
+ *                             ▼                         ▼
+ *                     Paiement immédiat          Retenue de garantie
+ *                       70% = 66.5 USDC            30% = 28.5 USDC
+ *                     (claimable aussitôt)       (bloqué jusqu'à guaranteeEnd)
+ *
+ *  PHASE 5b : claimPayment()  (pull payment, pas de délai)
+ *  ─────────────────────────────────────────────────────────
+ *  Auditeur ──► AuditRegistry ──► AuditEscrow.releasePayment()
+ *  Auditeur ◄──[66.5 USDC]──────────────────────────────────
+ *
+ *  PHASE 5c : claimGuarantee()  (après guaranteeEnd)
+ *  ─────────────────────────────────────────────────────────
+ *  Auditeur ──► AuditRegistry ──► AuditEscrow.releaseGuarantee()
+ *  Auditeur ◄──[28.5 USDC]──────────────────────────────────
+ *
+ *  PHASE 5d : claimRefundAfterTimeout()  (si pas de validation sous 10j)
+ *  ─────────────────────────────────────────────────────────
+ *  Requester ──► AuditRegistry ──► AuditEscrow.refund()
+ *  Requester ◄──[95 USDC]──────────────────────────────────
+ *  Note : les 5 USDC Treasury ne sont pas remboursés
+ *
+ *  CAS EXPLOIT : resolveIncident(validated=true)
+ *  ─────────────────────────────────────────────────────────
+ *  DAOVoting ──► AuditRegistry ──► ReputationBadge.incExploits()
+ *  Note : la libération des 28.5 USDC vers le requester
+ *         est gérée par AuditEscrow (hors scope de cette Registry)
+ *
+ * ============================================================
  */
 contract AuditRegistry is Ownable, ReentrancyGuard {
     /** @notice Etat de l'audit */
@@ -102,6 +150,8 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     error AuditRegistry__NotDAOVoting();
     error AuditRegistry__TooManySpecialties();
     error AuditRegistry__ValidationTimeout();
+    error AuditRegistry__AuditNotValidated();
+    error AuditRegistry__GuaranteeNotExpired();
 
     // =========================================================================
     // Events
@@ -377,7 +427,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
         // ============ INTERACTIONS ============
         reputationBadge.incAudits(tokenId, guarantee);
 
-        IAuditEscrow(escrowAddress).lockFunds(
+        AuditEscrow(escrowAddress).lockFunds(
             auditId,
             audit.auditor,
             audit.requester,
@@ -411,7 +461,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
         emit RefundClaimed(auditId, audit.requester, refundAmount);
 
         // ============ INTERACTIONS ============
-        IAuditEscrow(escrowAddress).refund(
+        AuditEscrow(escrowAddress).refund(
             auditId,
             audit.requester,
             refundAmount
@@ -483,6 +533,38 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
         }
     }
 
+    // =========================================================================
+    // Phase 5b : Récupération des fonds par l'auditeur (pull payment)
+    // =========================================================================
+
+    /**
+     * @notice L'auditeur récupère son paiement immédiat (70%) après validation.
+     * @dev Vérifie les conditions ici (status, identité) puis ordonne le transfert à AuditEscrow.
+     *      AuditEscrow ne fait confiance qu'à cette registry : il exécute sans reposer les checks.
+     * @param auditId Identifiant de l'audit
+     */
+    function claimPayment(uint256 auditId) external nonReentrant {
+        Audit storage audit = audits[auditId];
+        if (msg.sender != audit.auditor) revert AuditRegistry__NotTheAuditor();
+        if (audit.status != AuditStatus.VALIDATED) revert AuditRegistry__AuditNotValidated();
+
+        AuditEscrow(escrowAddress).releasePayment(auditId, msg.sender);
+    }
+
+    /**
+     * @notice L'auditeur récupère sa retenue de garantie (30%) après la fin de la période de garantie.
+     * @dev C'est ici que le délai est vérifié : AuditEscrow ne connaît pas guaranteeEnd.
+     * @param auditId Identifiant de l'audit
+     */
+    function claimGuarantee(uint256 auditId) external nonReentrant {
+        Audit storage audit = audits[auditId];
+        if (msg.sender != audit.auditor) revert AuditRegistry__NotTheAuditor();
+        if (audit.status != AuditStatus.VALIDATED) revert AuditRegistry__AuditNotValidated();
+        if (block.timestamp < audit.guaranteeEnd) revert AuditRegistry__GuaranteeNotExpired();
+
+        AuditEscrow(escrowAddress).releaseGuarantee(auditId, msg.sender);
+    }
+
     /**
      * @notice Retourne les données complètes d'un audit par son ID
      * @dev Retourne une struct memory : Viem expose les champs par nom (pas un tuple indexé)
@@ -497,20 +579,6 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
 // =========================================================================
 // Interfaces minimales
 // =========================================================================
-
-interface IAuditEscrow {
-    function lockFunds(
-        uint256 auditId,
-        address auditor,
-        address requester,
-        uint256 amount
-    ) external;
-    function refund(
-        uint256 auditId,
-        address requester,
-        uint256 amount
-    ) external;
-}
 
 interface IDaoVoting {
     function hasIncident(uint256 auditId) external view returns (bool);

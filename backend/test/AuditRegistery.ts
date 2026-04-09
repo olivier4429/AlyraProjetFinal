@@ -109,7 +109,7 @@ describe("AuditRegistry", () => {
         // Déploiement des mocks
         mockUsdc = await viem.deployContract("MockUSDC");
         mockTreasury = await viem.deployContract("MockTreasury");
-        mockEscrow = await viem.deployContract("MockAuditEscrow", [mockUsdc.address]);
+        mockEscrow = await viem.deployContract("AuditEscrow", [mockUsdc.address]);
         mockDao = await viem.deployContract("MockDAOVoting");
 
         // Déploiement ReputationBadge
@@ -129,15 +129,14 @@ describe("AuditRegistry", () => {
             account: owner.account,
         });
 
+        // Lier AuditEscrow -> AuditRegistry (résolution de la dépendance circulaire)
+        await mockEscrow.write.setRegistryAddress([registry.address], {
+            account: owner.account,
+        });
+
         // Mint USDC vers requester (10 000 USDC)
         await mockUsdc.write.mint(
             [requester.account.address, parseUnits("10000", 6)],
-            { account: owner.account }
-        );
-
-        // Mint USDC vers mockEscrow pour les remboursements
-        await mockUsdc.write.mint(
-            [mockEscrow.address, parseUnits("10000", 6)],
             { account: owner.account }
         );
 
@@ -616,18 +615,19 @@ describe("AuditRegistry", () => {
             assert.equal(pending, false);
         });
 
-        it("lockFunds appelé sur l'Escrow avec les bons paramètres", async () => {
+        it("lockFunds : séquestre enregistré avec les bons montants (70/30)", async () => {
             await registry.write.validateAudit(
                 [1n, GUARANTEE_DURATION],
                 { account: auditor1.account }
             );
-            const count = await mockEscrow.read.getLockCallsCount();
-            assert.equal(count, 1n);
-            const lastCall = await mockEscrow.read.getLastLockCall();
-            assert.equal(lastCall.auditId, 1n);
-            assert.equal(getAddress(lastCall.auditor), getAddress(auditor1.account.address));
-            assert.equal(getAddress(lastCall.requester), getAddress(requester.account.address));
-            assert.equal(lastCall.amount, ESCROW_AMOUNT);
+            const esc = await mockEscrow.read.escrows([1n]);
+            // esc = [auditor, paymentClaimed, guaranteeClaimed, requester, immediateAmount, guaranteeAmount]
+            assert.equal(getAddress(esc[0]), getAddress(auditor1.account.address));
+            assert.equal(esc[1], false); // paymentClaimed
+            assert.equal(esc[2], false); // guaranteeClaimed
+            assert.equal(getAddress(esc[3]), getAddress(requester.account.address));
+            assert.equal(esc[4], ESCROW_AMOUNT * 70n / 100n); // immediateAmount
+            assert.equal(esc[5], ESCROW_AMOUNT * 30n / 100n); // guaranteeAmount
         });
 
         it("incAudits appelé : totalAudits incrémenté", async () => {
@@ -740,18 +740,18 @@ describe("AuditRegistry", () => {
             assert.equal(pending, false);
         });
 
-        it("refund appelé sur l'Escrow avec les bons paramètres", async () => {
+        it("refund : l'escrow transfère ESCROW_AMOUNT au requester", async () => {
             await mineTime(VALIDATION_TIMEOUT + 1n);
+            const escrowBefore = await mockUsdc.read.balanceOf([mockEscrow.address]);
+            const requesterBefore = await mockUsdc.read.balanceOf([requester.account.address]);
             await registry.write.claimRefundAfterTimeout(
                 [1n],
                 { account: requester.account }
             );
-            const count = await mockEscrow.read.getRefundCallsCount();
-            assert.equal(count, 1n);
-            const lastCall = await mockEscrow.read.getLastRefundCall();
-            assert.equal(lastCall.auditId, 1n);
-            assert.equal(getAddress(lastCall.requester), getAddress(requester.account.address));
-            assert.equal(lastCall.amount, ESCROW_AMOUNT);
+            const escrowAfter = await mockUsdc.read.balanceOf([mockEscrow.address]);
+            const requesterAfter = await mockUsdc.read.balanceOf([requester.account.address]);
+            assert.equal(escrowBefore - escrowAfter, ESCROW_AMOUNT);
+            assert.equal(requesterAfter - requesterBefore, ESCROW_AMOUNT);
         });
 
         it("revert ValidationTimeout si 10 jours pas encore passés", async () => {
@@ -798,6 +798,135 @@ describe("AuditRegistry", () => {
                 registry,
                 "RefundClaimed",
                 [1n, getAddress(requester.account.address), ESCROW_AMOUNT]
+            );
+        });
+    });
+
+    // =========================================================================
+    // claimPayment()
+    // =========================================================================
+
+    describe("claimPayment()", () => {
+        beforeEach(async () => {
+            await registry.write.registerAuditor(
+                ["alice", ["DeFi"]],
+                { account: auditor1.account }
+            );
+            await registry.write.depositAudit(
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                { account: requester.account }
+            );
+            await registry.write.validateAudit(
+                [1n, GUARANTEE_DURATION],
+                { account: auditor1.account }
+            );
+        });
+
+        it("transfère 70% à l'auditeur", async () => {
+            const before = await mockUsdc.read.balanceOf([auditor1.account.address]);
+            await registry.write.claimPayment([1n], { account: auditor1.account });
+            const after = await mockUsdc.read.balanceOf([auditor1.account.address]);
+            assert.equal(after - before, ESCROW_AMOUNT * 70n / 100n);
+        });
+
+        it("revert NotTheAuditor si mauvais appelant", async () => {
+            await assert.rejects(
+                registry.write.claimPayment([1n], { account: stranger.account }),
+                /AuditRegistry__NotTheAuditor/
+            );
+        });
+
+        it("revert AuditNotValidated si audit non validé", async () => {
+            await registry.write.registerAuditor(
+                ["bob", ["NFT"]],
+                { account: auditor2.account }
+            );
+            await registry.write.depositAudit(
+                [auditor2.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                { account: requester.account }
+            );
+            // auditId 2 est PENDING
+            await assert.rejects(
+                registry.write.claimPayment([2n], { account: auditor2.account }),
+                /AuditRegistry__AuditNotValidated/
+            );
+        });
+
+        it("revert AlreadyClaimed si réclamé deux fois", async () => {
+            await registry.write.claimPayment([1n], { account: auditor1.account });
+            await assert.rejects(
+                registry.write.claimPayment([1n], { account: auditor1.account }),
+                /AuditEscrow__AlreadyClaimed/
+            );
+        });
+    });
+
+    // =========================================================================
+    // claimGuarantee()
+    // =========================================================================
+
+    describe("claimGuarantee()", () => {
+        beforeEach(async () => {
+            await registry.write.registerAuditor(
+                ["alice", ["DeFi"]],
+                { account: auditor1.account }
+            );
+            await registry.write.depositAudit(
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                { account: requester.account }
+            );
+            await registry.write.validateAudit(
+                [1n, GUARANTEE_DURATION],
+                { account: auditor1.account }
+            );
+        });
+
+        it("transfère 30% à l'auditeur après la période de garantie", async () => {
+            await mineTime(GUARANTEE_DURATION + 1n);
+            const before = await mockUsdc.read.balanceOf([auditor1.account.address]);
+            await registry.write.claimGuarantee([1n], { account: auditor1.account });
+            const after = await mockUsdc.read.balanceOf([auditor1.account.address]);
+            assert.equal(after - before, ESCROW_AMOUNT * 30n / 100n);
+        });
+
+        it("revert GuaranteeNotExpired si période non expirée", async () => {
+            await assert.rejects(
+                registry.write.claimGuarantee([1n], { account: auditor1.account }),
+                /AuditRegistry__GuaranteeNotExpired/
+            );
+        });
+
+        it("revert NotTheAuditor si mauvais appelant", async () => {
+            await mineTime(GUARANTEE_DURATION + 1n);
+            await assert.rejects(
+                registry.write.claimGuarantee([1n], { account: stranger.account }),
+                /AuditRegistry__NotTheAuditor/
+            );
+        });
+
+        it("revert AuditNotValidated si audit non validé", async () => {
+            await registry.write.registerAuditor(
+                ["bob", ["NFT"]],
+                { account: auditor2.account }
+            );
+            await registry.write.depositAudit(
+                [auditor2.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                { account: requester.account }
+            );
+            await mineTime(GUARANTEE_DURATION + 1n);
+            // auditId 2 est PENDING
+            await assert.rejects(
+                registry.write.claimGuarantee([2n], { account: auditor2.account }),
+                /AuditRegistry__AuditNotValidated/
+            );
+        });
+
+        it("revert AlreadyClaimed si réclamé deux fois", async () => {
+            await mineTime(GUARANTEE_DURATION + 1n);
+            await registry.write.claimGuarantee([1n], { account: auditor1.account });
+            await assert.rejects(
+                registry.write.claimGuarantee([1n], { account: auditor1.account }),
+                /AuditEscrow__AlreadyClaimed/
             );
         });
     });
@@ -1088,6 +1217,55 @@ describe("AuditRegistry", () => {
             const dataAfter = await badge.read.getAuditorData([auditor1.account.address]);
             assert.equal(dataAfter.reputationScore, scoreBefore);
             assert.equal(dataAfter.totalExploits, 0);
+        });
+
+        it("flux paiement complet : balances finales cohérentes (treasury +5%, auditeur +95%)", async () => {
+            const treasuryBefore  = await mockUsdc.read.balanceOf([mockTreasury.address]);
+            const auditorBefore   = await mockUsdc.read.balanceOf([auditor1.account.address]);
+            const requesterBefore = await mockUsdc.read.balanceOf([requester.account.address]);
+
+            await registry.write.depositAudit(
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                { account: requester.account }
+            );
+            await registry.write.validateAudit([1n, GUARANTEE_DURATION], { account: auditor1.account });
+
+            // Paiement immédiat (70%)
+            await registry.write.claimPayment([1n], { account: auditor1.account });
+
+            // Fin de garantie puis récupération des 30%
+            await mineTime(GUARANTEE_DURATION + 1n);
+            await registry.write.claimGuarantee([1n], { account: auditor1.account });
+
+            const treasuryAfter  = await mockUsdc.read.balanceOf([mockTreasury.address]);
+            const auditorAfter   = await mockUsdc.read.balanceOf([auditor1.account.address]);
+            const requesterAfter = await mockUsdc.read.balanceOf([requester.account.address]);
+            const escrowFinal    = await mockUsdc.read.balanceOf([mockEscrow.address]);
+
+            assert.equal(treasuryAfter  - treasuryBefore,  FEE_AMOUNT);     // +5 USDC
+            assert.equal(auditorAfter   - auditorBefore,   ESCROW_AMOUNT);   // +95 USDC
+            assert.equal(requesterBefore - requesterAfter, AUDIT_AMOUNT);    // -100 USDC
+            assert.equal(escrowFinal, 0n);                                   // escrow vidé
+        });
+
+        it("claimPayment possible avant fin de garantie, claimGuarantee bloqué jusqu'à guaranteeEnd", async () => {
+            await registry.write.depositAudit(
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                { account: requester.account }
+            );
+            await registry.write.validateAudit([1n, GUARANTEE_DURATION], { account: auditor1.account });
+
+            // Paiement immédiat récupérable immédiatement
+            const before = await mockUsdc.read.balanceOf([auditor1.account.address]);
+            await registry.write.claimPayment([1n], { account: auditor1.account });
+            const after = await mockUsdc.read.balanceOf([auditor1.account.address]);
+            assert.equal(after - before, ESCROW_AMOUNT * 70n / 100n);
+
+            // Garantie encore bloquée
+            await assert.rejects(
+                registry.write.claimGuarantee([1n], { account: auditor1.account }),
+                /AuditRegistry__GuaranteeNotExpired/
+            );
         });
 
         it("deux auditeurs indépendants : pas d'interférence", async () => {

@@ -33,14 +33,14 @@ npm run dev
 
 Pour tester l'interface contre des contrats réels en local, utiliser le script de seed du backend.
 
-**Terminal 1 — nœud Hardhat local**
+**Terminal 1 : nœud Hardhat local**
 
 ```bash
 cd ../backend
 npx hardhat node
 ```
 
-**Terminal 2 — déploiement + données de test**
+**Terminal 2 : déploiement + données de test**
 
 ```bash
 cd ../backend
@@ -49,7 +49,7 @@ npx hardhat run scripts/seed.ts --network localhost
 
 Le script déploie tous les contrats, inscrit 4 auditeurs de test et met à jour automatiquement `src/constants/contracts.ts` avec les adresses déployées.
 
-**Terminal 3 — frontend**
+**Terminal 3 : frontend**
 
 ```bash
 npm run dev

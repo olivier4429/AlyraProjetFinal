@@ -121,8 +121,8 @@ Approximation via `Math.log10()` d'OpenZeppelin (entier, pas de virgule flottant
 | Type | Quoi | Où |
 |---|---|---|
 | **On-chain (storage)** | Structs `Auditor`, `Audit`, `EscrowInfo`, `Incident`, `hasVoted`, compteurs | Smart contracts |
-| **Events Solidity** | Nom/spécialités auditeur, historique audits, votes, scores — indexés par la DApp | RPC listener / The Graph |
-| **IPFS (Pinata)** | Rapports d'audit PDF (500 Ko – 5 Mo), preuves d'exploit — seul le CID est on-chain | Pinata (pin permanent) |
+| **Events Solidity** | Nom/spécialités auditeur, historique audits, votes, scores : indexés par la DApp | RPC listener / The Graph |
+| **IPFS (Pinata)** | Rapports d'audit PDF (500 Ko – 5 Mo), preuves d'exploit : seul le CID est on-chain | Pinata (pin permanent) |
 | **Off-chain (DApp)** | Classement, taux sans exploit, yield Aave accumulé, progression timelock | Calculé à la volée |
 
 ---
@@ -139,14 +139,14 @@ npx hardhat test
 
 ### Développement local (frontend + contrats)
 
-**Terminal 1 — nœud Hardhat**
+**Terminal 1 : nœud Hardhat**
 
 ```bash
 cd backend
 npx hardhat node
 ```
 
-**Terminal 2 — déploiement + seed**
+**Terminal 2 : déploiement + seed**
 
 ```bash
 cd backend
@@ -155,7 +155,7 @@ npx hardhat run scripts/seed.ts --network localhost
 
 Déploie tous les contrats, inscrit 4 auditeurs de test et met à jour automatiquement `frontend/src/constants/contracts.ts`.
 
-**Terminal 3 — frontend**
+**Terminal 3 : frontend**
 
 ```bash
 cd frontend

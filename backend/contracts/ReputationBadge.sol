@@ -11,9 +11,56 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
  * @title ReputationBadge
  * @author OLB
  * @notice Ce contrat permet d'attribuer un badge de réputation à un utilisateur. Le badge est un token ERC721 qui ne peut pas être transféré. C'est un SoulBound token. Tout auditeur qui s'inscrit sur la DApp peut recevoir un NFT.
+ *
+ * ============================================================
+ * FLUX FINANCIERS  (exemple sur un dépôt de 100 USDC)
+ * ============================================================
+ *
+ *  PHASE 4 : depositAudit()
+ *  ─────────────────────────────────────────────────────────
+ *  Requester ──[100 USDC]──► AuditRegistry
+ *                                  │
+ *                     ┌────────────┴────────────┐
+ *                     ▼                         ▼
+ *               Treasury (5%)            AuditEscrow (95%)
+ *                5 USDC                    95 USDC
+ *
+ *  PHASE 5 : validateAudit()  →  lockFunds()
+ *  ─────────────────────────────────────────────────────────
+ *  AuditRegistry ──────────────────────► AuditEscrow
+ *                                          │
+ *                             ┌────────────┴────────────┐
+ *                             ▼                         ▼
+ *                     Paiement immédiat          Retenue de garantie
+ *                       70% = 66.5 USDC            30% = 28.5 USDC
+ *                     (claimable aussitôt)       (bloqué jusqu'à guaranteeEnd)
+ *
+ *  PHASE 5b : claimPayment()  (pull payment, pas de délai)
+ *  ─────────────────────────────────────────────────────────
+ *  Auditeur ──► AuditRegistry ──► AuditEscrow.releasePayment()
+ *  Auditeur ◄──[66.5 USDC]──────────────────────────────────
+ *
+ *  PHASE 5c : claimGuarantee()  (après guaranteeEnd)
+ *  ─────────────────────────────────────────────────────────
+ *  Auditeur ──► AuditRegistry ──► AuditEscrow.releaseGuarantee()
+ *  Auditeur ◄──[28.5 USDC]──────────────────────────────────
+ *
+ *  PHASE 5d : claimRefundAfterTimeout()  (si pas de validation sous 10j)
+ *  ─────────────────────────────────────────────────────────
+ *  Requester ──► AuditRegistry ──► AuditEscrow.refund()
+ *  Requester ◄──[95 USDC]──────────────────────────────────
+ *  Note : les 5 USDC Treasury ne sont pas remboursés
+ *
+ *  CAS EXPLOIT : resolveIncident(validated=true)
+ *  ─────────────────────────────────────────────────────────
+ *  DAOVoting ──► AuditRegistry ──► ReputationBadge.incExploits()
+ *  Note : la libération des 28.5 USDC vers le requester
+ *         est gérée par AuditEscrow (hors scope de cette Registry)
+ *
+ * ============================================================
  */
 contract ReputationBadge is ERC721, Ownable {
-    /** @notice Adresse du contrat AuditRegistry — seul autorisé à mint/update */
+    /** @notice Adresse du contrat AuditRegistry : seul autorisé à mint/update */
     address public registryAddress;
 
     uint256 private tokenCounter;
@@ -232,7 +279,7 @@ contract ReputationBadge is ERC721, Ownable {
         uint256 guaranteeInUsdc = guaranteeAmount / 1e6; // → 100 USDC
         uint256 penalty = Math.log10(guaranteeInUsdc) * 10;
 
-        // Plancher à 0 — pas de underflow possible
+        // Plancher à 0 : pas de underflow possible
         data.reputationScore = uint256(data.reputationScore) > penalty
             ? uint64(uint256(data.reputationScore) - penalty)
             : 0;

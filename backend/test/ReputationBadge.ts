@@ -159,7 +159,7 @@ describe("ReputationBadge", () => {
             assert.equal(result, 1n);
         });
 
-        it("deux mints successifs — tokenIds sont 1 et 2", async () => {
+        it("deux mints successifs : tokenIds sont 1 et 2", async () => {
             await badge.write.mintNft([auditor1.account.address], {
                 account: registry.account,
             });
@@ -172,7 +172,7 @@ describe("ReputationBadge", () => {
             assert.equal(id2, 2n);
         });
 
-        it("_auditorData — reputationScore == 0 après mint", async () => {
+        it("_auditorData : reputationScore == 0 après mint", async () => {
             await badge.write.mintNft([auditor1.account.address], {
                 account: registry.account,
             });
@@ -180,7 +180,7 @@ describe("ReputationBadge", () => {
             assert.equal(data.reputationScore, 0n);
         });
 
-        it("_auditorData — totalAudits == 0 après mint", async () => {
+        it("_auditorData : totalAudits == 0 après mint", async () => {
             await badge.write.mintNft([auditor1.account.address], {
                 account: registry.account,
             });
@@ -188,7 +188,7 @@ describe("ReputationBadge", () => {
             assert.equal(data.totalAudits, 0);
         });
 
-        it("_auditorData — totalExploits == 0 après mint", async () => {
+        it("_auditorData : totalExploits == 0 après mint", async () => {
             await badge.write.mintNft([auditor1.account.address], {
                 account: registry.account,
             });
@@ -196,7 +196,7 @@ describe("ReputationBadge", () => {
             assert.equal(data.totalExploits, 0);
         });
 
-        it("_auditorData — isActive == true après mint", async () => {
+        it("_auditorData : isActive == true après mint", async () => {
             await badge.write.mintNft([auditor1.account.address], {
                 account: registry.account,
             });
@@ -204,7 +204,7 @@ describe("ReputationBadge", () => {
             assert.equal(data.isActive, true);
         });
 
-        it("_auditorData — registrationDate > 0 après mint", async () => {
+        it("_auditorData : registrationDate > 0 après mint", async () => {
             await badge.write.mintNft([auditor1.account.address], {
                 account: registry.account,
             });
@@ -212,7 +212,7 @@ describe("ReputationBadge", () => {
             assert.ok(data.registrationDate > 0n);
         });
 
-        it("_auditorData — registrationDate correspond au timestamp du bloc de mint", async () => {
+        it("_auditorData : registrationDate correspond au timestamp du bloc de mint", async () => {
             const publicClient = await viem.getPublicClient();
 
             const hash = await badge.write.mintNft([auditor1.account.address], {
@@ -398,7 +398,7 @@ describe("ReputationBadge", () => {
             assert.equal(data.reputationScore, 20n);
         });
 
-        it("plusieurs appels successifs — score cumulatif correct (20 + 10 = 30)", async () => {
+        it("plusieurs appels successifs : score cumulatif correct (20 + 10 = 30)", async () => {
             await badge.write.incAudits([1n, GUARANTEE_100_USDC], {
                 account: registry.account,
             });
@@ -475,7 +475,7 @@ describe("ReputationBadge", () => {
             assert.equal(data.reputationScore, 0n);
         });
 
-        it("score reste à 0 si appelé avec score déjà à 0 — pas de underflow", async () => {
+        it("score reste à 0 si appelé avec score déjà à 0 : pas de underflow", async () => {
             await badge.write.incExploits([1n, GUARANTEE_100_USDC], {
                 account: registry.account,
             });
@@ -535,27 +535,27 @@ describe("ReputationBadge", () => {
             assert.ok((json.name as string).includes("AuditRegistry ReputationBadge"));
         });
 
-        it("JSON décodé — Reputation Score == 0 après mint", async () => {
+        it("JSON décodé : Reputation Score == 0 après mint", async () => {
             const json = decodeTokenURI(await badge.read.tokenURI([1n]));
             assert.equal(getAttribute(json, "Reputation Score"), 0);
         });
 
-        it("JSON décodé — Total Audits == 0 après mint", async () => {
+        it("JSON décodé : Total Audits == 0 après mint", async () => {
             const json = decodeTokenURI(await badge.read.tokenURI([1n]));
             assert.equal(getAttribute(json, "Total Audits"), 0);
         });
 
-        it("JSON décodé — Total Exploits == 0 après mint", async () => {
+        it("JSON décodé : Total Exploits == 0 après mint", async () => {
             const json = decodeTokenURI(await badge.read.tokenURI([1n]));
             assert.equal(getAttribute(json, "Total Exploits"), 0);
         });
 
-        it("JSON décodé — Registration Date > 0", async () => {
+        it("JSON décodé : Registration Date > 0", async () => {
             const json = decodeTokenURI(await badge.read.tokenURI([1n]));
             assert.ok(Number(getAttribute(json, "Registration Date")) > 0);
         });
 
-        it("JSON décodé — Registration Date dans le tokenURI correspond au timestamp du bloc de mint", async () => {
+        it("JSON décodé : Registration Date dans le tokenURI correspond au timestamp du bloc de mint", async () => {
             const publicClient = await viem.getPublicClient();
 
             const receipt = await publicClient.waitForTransactionReceipt({ hash });
@@ -569,12 +569,12 @@ describe("ReputationBadge", () => {
             assert.equal(BigInt(registrationDate as string), block.timestamp);
         });
 
-        it("JSON décodé — Active == true", async () => {
+        it("JSON décodé : Active == true", async () => {
             const json = decodeTokenURI(await badge.read.tokenURI([1n]));
             assert.equal(getAttribute(json, "Active"), true);
         });
 
-        it("JSON décodé — image non vide", async () => {
+        it("JSON décodé : image non vide", async () => {
             const json = decodeTokenURI(await badge.read.tokenURI([1n]));
             assert.ok((json.image as string).length > 0);
         });
@@ -676,7 +676,7 @@ describe("ReputationBadge", () => {
             assert.equal(data.reputationScore, 0n);
         });
 
-        it("deux auditeurs indépendants — leurs scores n'interfèrent pas", async () => {
+        it("deux auditeurs indépendants : leurs scores n'interfèrent pas", async () => {
             await badge.write.mintNft([auditor1.account.address], {
                 account: registry.account,
             });

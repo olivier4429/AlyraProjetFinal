@@ -34,20 +34,20 @@ Les tests utilisent le runner natif Node.js (`node:test`) et la bibliothèque `v
 
 ---
 
-## Seed — déploiement + données de test
+## Seed : déploiement + données de test
 
 Le script `scripts/seed.ts` déploie tous les contrats et inscrit 4 auditeurs de test.
 Il met aussi à jour automatiquement `frontend/src/constants/contracts.ts` avec les adresses déployées.
 
 ### En local (réseau Hardhat)
 
-**Terminal 1 — nœud Hardhat local**
+**Terminal 1 : nœud Hardhat local**
 
 ```bash
 npx hardhat node
 ```
 
-**Terminal 2 — seed**
+**Terminal 2 : seed**
 
 ```bash
 npx hardhat run scripts/seed.ts --network localhost
@@ -73,7 +73,7 @@ Puis inscrit les 4 auditeurs de test :
 
 ### Sur Sepolia
 
-**Prérequis 1 — keystore Hardhat** (déployeur)
+**Prérequis 1 : keystore Hardhat** (déployeur)
 
 `SEPOLIA_RPC_URL` et `SEPOLIA_PRIVATE_KEY` doivent être enregistrés dans le keystore Hardhat :
 
@@ -82,7 +82,7 @@ npx hardhat keystore set SEPOLIA_RPC_URL
 npx hardhat keystore set SEPOLIA_PRIVATE_KEY
 ```
 
-**Prérequis 2 — fichier `.env`** (auditeurs de test)
+**Prérequis 2 : fichier `.env`** (auditeurs de test)
 
 Copier `.env.example` vers `.env` et renseigner les clés privées des 4 comptes auditeurs.
 Ces comptes doivent avoir un peu d'ETH Sepolia pour payer les frais de gas.
