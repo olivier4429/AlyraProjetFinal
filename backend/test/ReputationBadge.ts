@@ -47,12 +47,15 @@ describe("ReputationBadge", () => {
     let badge: Awaited<ReturnType<typeof viem.deployContract>>;
 
     before(async () => {
+        //initialisation des comptes
         [owner, registry, auditor1, auditor2, stranger] =
             await viem.getWalletClients();
     });
 
     beforeEach(async () => {
+        //déploiement du contrat ReputationBadge. On le recréé avant chaque test pour avoir un état propre.
         badge = await viem.deployContract("ReputationBadge", [SVG_IMAGE]);
+        //liaison du contrat ReputationBadge au contrat AuditRegistry
         await badge.write.setRegistryAddress([registry.account.address], {
             account: owner.account,
         });

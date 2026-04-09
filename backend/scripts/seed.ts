@@ -19,7 +19,13 @@ import { network } from "hardhat";
 import { readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { privateKeyToAccount } from "viem/accounts";
-import type { Account, Hex } from "viem";
+import {
+  encodePacked,
+  keccak256,
+  parseUnits,
+  type Account,
+  type Hex,
+} from "viem";
 
 const { viem, networkName } = await network.connect();
 
@@ -55,23 +61,31 @@ console.log(`\n🚀 Seed sur le réseau : ${networkName}\n`);
 const walletClients = await viem.getWalletClients();
 
 let auditorAccounts: Account[];
+let requesterAccounts: Account[];
 
 const auditorEnvKeys = [
   process.env.AUDITOR_1_PRIVATE_KEY,
   process.env.AUDITOR_2_PRIVATE_KEY,
   process.env.AUDITOR_3_PRIVATE_KEY,
   process.env.AUDITOR_4_PRIVATE_KEY,
-].filter((k): k is string => !!k && k.length > 0);
+];
+
+const requesterEnvKeys = [
+  process.env.AUDITOR_1_PRIVATE_KEY,
+  process.env.AUDITOR_2_PRIVATE_KEY
+];
 
 if (auditorEnvKeys.length > 0) {
   // Réseau externe (Sepolia…) : clés privées dédiées depuis .env
   auditorAccounts = auditorEnvKeys.map((k) => privateKeyToAccount(k as Hex));
+  requesterAccounts = requesterEnvKeys.map((k) => privateKeyToAccount(k as Hex));
   console.log(
     `👛 Auditeurs : ${auditorAccounts.length} compte(s) depuis AUDITOR_N_PRIVATE_KEY (.env)\n`
   );
 } else {
   // Réseau local Hardhat : comptes pré-financés accounts[1..4]
   auditorAccounts = walletClients.slice(1, 5).map((wc) => wc.account);
+  requesterAccounts = [walletClients[6].account];
   console.log("👛 Auditeurs : comptes Hardhat locaux (accounts[1..4])\n");
 }
 
@@ -141,6 +155,32 @@ for (let i = 0; i < registrationCount; i++) {
     `  ✅ ${pseudo.padEnd(18)} adresse: ${account.address}  tokenId: #${tokenId}`
   );
 }
+// =========================================================================
+// Génération d'activités pour l'auditeur 1 avec le demandeur 1
+// =========================================================================
+
+console.log("\n👤 Génération d'activités pour l'auditeur 1...");
+const auditor1 = auditorAccounts[0];
+const requester1 = requesterAccounts[0];
+const GUARANTEE_DURATION = 90n * 24n * 60n * 60n; // 90 jours
+const VALID_CID = keccak256(encodePacked(["string"], ["CIDdurapportdauditvalide"])); //CID du rapport d'audit valide
+//partons du principe que l'auditeur 1 a audité le contrat mockTreasury
+await registry.write.depositAudit(
+  [auditor1.address, mockTreasury.address, VALID_CID, parseUnits("100", 6)],
+  { account: requester1 }
+);
+await registry.write.validateAudit(
+  [1n, GUARANTEE_DURATION],
+  { account: auditor1 }
+);
+const generateActivityHash = await registry.write.generateActivity([auditor1.account.address], { account: auditor1.account });
+await publicClient.waitForTransactionReceipt({ hash: generateActivityHash });
+
+console.log(`  ✅ Activité générée pour l'auditeur 1`);
+
+
+
+
 
 // =========================================================================
 // Mise à jour de frontend/.env avec les adresses déployées

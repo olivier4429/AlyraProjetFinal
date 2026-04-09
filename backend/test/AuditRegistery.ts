@@ -22,9 +22,9 @@ const ESCROW_AMOUNT = parseUnits("95", 6);   // 95% = 95 USDC
 const GUARANTEE_DURATION = 90n * 24n * 60n * 60n; // 90 jours en secondes
 const VALIDATION_TIMEOUT = 10n * 24n * 60n * 60n; // 10 jours en secondes
 
-const VALID_CID = keccak256(encodePacked(["string"], ["QmTest123"]));
-const PREUVES_CID = keccak256(encodePacked(["string"], ["QmPreuves456"]));
-const EMPTY_CID: Address = `0x${"0".repeat(64)}`;
+const VALID_CID = keccak256(encodePacked(["string"], ["QmTest123"])); //CID du rapport d'audit valide
+const PREUVES_CID = keccak256(encodePacked(["string"], ["QmPreuves456"])); //CID de l'exploit
+const EMPTY_CID: Address = `0x${"0".repeat(64)}`; //CID vide
 const SVG_IMAGE = "<svg xmlns='http://www.w3.org/2000/svg'><text>TEST</text></svg>";
 
 /** @notice pourc caster en unint40. */

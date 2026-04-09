@@ -316,7 +316,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
         bool ok = usdc.transferFrom(msg.sender, address(this), amount);
         if (!ok) revert AuditRegistry__TransferFailed();
 
-        //on prend les frais
+        //on prend les frais 5% de frais pour nous
         bool feeOk = usdc.transfer(treasuryAddress, fee);
         if (!feeOk) revert AuditRegistry__TransferFailed();
 
