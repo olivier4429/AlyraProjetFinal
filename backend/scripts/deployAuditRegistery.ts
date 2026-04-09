@@ -28,6 +28,9 @@ const svgContent = readFileSync(
   "utf-8"
 );
 
+// ── Bloc de départ (pour les getLogs du frontend) ─────────────────────────────
+const deployBlock = await publicClient.getBlockNumber();
+
 // ── Contrats ─────────────────────────────────────────────────────────────────
 const badge = await viem.deployContract("ReputationBadge", [svgContent]);
 console.log(`  ✅ ReputationBadge : ${badge.address}`);
@@ -75,6 +78,7 @@ const setEnvVar = (content: string, key: string, value: string): string => {
 
 envContent = setEnvVar(envContent, "VITE_AUDIT_REGISTRY_ADDRESS", registry.address);
 envContent = setEnvVar(envContent, "VITE_REPUTATION_BADGE_ADDRESS", badge.address);
+envContent = setEnvVar(envContent, "VITE_DEPLOY_BLOCK", deployBlock.toString());
 writeFileSync(envFilePath, envContent);
 console.log(`📝 frontend/.env mis à jour`);
 

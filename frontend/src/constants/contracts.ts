@@ -5,3 +5,6 @@ export const AUDIT_REGISTRY_ADDRESS = import.meta.env
 
 export const REPUTATION_BADGE_ADDRESS = import.meta.env
   .VITE_REPUTATION_BADGE_ADDRESS as Address;
+
+/** Bloc à partir duquel chercher les events (écrit par le script de déploiement). */
+export const DEPLOY_BLOCK = BigInt(import.meta.env.VITE_DEPLOY_BLOCK ?? "0");

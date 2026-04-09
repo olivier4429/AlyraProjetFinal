@@ -110,6 +110,11 @@ const svgContent = readFileSync(
 
 console.log("📦 Déploiement des contrats...");
 
+// Bloc courant avant tout déploiement : utilisé par le frontend comme fromBlock
+// pour les getLogs (évite de scanner depuis le bloc genesis)
+const publicClient = await viem.getPublicClient();
+const deployBlock = await publicClient.getBlockNumber();
+
 const reputationBadge = await viem.deployContract("ReputationBadge", [
   svgContent,
 ]);
@@ -139,7 +144,6 @@ const registry = await viem.deployContract("AuditRegistry", [
 console.log(`  ✅ AuditRegistry   : ${registry.address}`);
 
 // Lier ReputationBadge et AuditEscrow à AuditRegistry (résolution de la dépendance circulaire)
-const publicClient = await viem.getPublicClient();
 
 const linkBadgeHash = await reputationBadge.write.setRegistryAddress([registry.address]);
 await publicClient.waitForTransactionReceipt({ hash: linkBadgeHash });
@@ -234,6 +238,7 @@ const setEnvVar = (content: string, key: string, value: string): string => {
 
 envContent = setEnvVar(envContent, "VITE_AUDIT_REGISTRY_ADDRESS", registry.address);
 envContent = setEnvVar(envContent, "VITE_REPUTATION_BADGE_ADDRESS", reputationBadge.address);
+envContent = setEnvVar(envContent, "VITE_DEPLOY_BLOCK", deployBlock.toString());
 
 writeFileSync(envFilePath, envContent);
 console.log(`\n📝 frontend/.env mis à jour (réseau : ${networkName})`);

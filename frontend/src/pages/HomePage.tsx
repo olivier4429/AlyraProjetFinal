@@ -1,12 +1,15 @@
 import { useNavigate } from "react-router-dom";
-import { mockAuditors } from "../data/mockAuditors";
 import StatBox from "../components/ui/StatBox";
 import AuditorCard from "../components/auditors/AuditorCard";
+import { useAuditors } from "../hooks/useAuditors";
+import { useProtocolStats } from "../hooks/useProtocolStats";
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const { auditors, isLoading, error } = useAuditors();
+  const stats = useProtocolStats(auditors);
 
-  const sortedAuditors = [...mockAuditors].sort(
+  const sortedAuditors = [...auditors].sort(
     (a, b) => b.reputationScore - a.reputationScore
   );
 
@@ -57,10 +60,26 @@ export default function HomePage() {
       {/* Stats */}
       <section>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatBox value="12" label="Auditeurs inscrits" accentColor="#3B82F6" />
-          <StatBox value="47" label="Audits réalisés" accentColor="#22D3EE" />
-          <StatBox value="94%" label="Sans exploit" accentColor="#34D399" />
-          <StatBox value="14 200 USDC" label="Volume audité" accentColor="#F59E0B" />
+          <StatBox
+            value={isLoading ? "…" : String(stats.auditorCount)}
+            label="Auditeurs inscrits"
+            accentColor="#3B82F6"
+          />
+          <StatBox
+            value={isLoading ? "…" : String(stats.auditCount)}
+            label="Audits réalisés"
+            accentColor="#22D3EE"
+          />
+          <StatBox
+            value={isLoading ? "…" : `${stats.exploitFreePercent}%`}
+            label="Sans exploit"
+            accentColor="#34D399"
+          />
+          <StatBox
+            value={stats.totalVolumeUsdc}
+            label="Volume audité"
+            accentColor="#F59E0B"
+          />
         </div>
       </section>
 
@@ -71,7 +90,9 @@ export default function HomePage() {
             <div>
               <h2 className="text-2xl font-bold text-white font-display">Auditeurs</h2>
               <p className="text-gray-400 text-sm mt-1">
-                {sortedAuditors.length} résultat{sortedAuditors.length !== 1 ? "s" : ""}
+                {isLoading
+                  ? "Chargement…"
+                  : `${sortedAuditors.length} résultat${sortedAuditors.length !== 1 ? "s" : ""}`}
               </p>
             </div>
             <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -83,11 +104,32 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {sortedAuditors.map((auditor, i) => (
-              <AuditorCard key={auditor.address} auditor={auditor} rank={i + 1} />
-            ))}
-          </div>
+          {error && (
+            <p className="text-red-400 text-sm">
+              Erreur de chargement : {error.message}
+            </p>
+          )}
+
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <div
+                  key={i}
+                  className="h-40 rounded-xl bg-[#1F2937] animate-pulse"
+                />
+              ))}
+            </div>
+          ) : sortedAuditors.length === 0 ? (
+            <p className="text-gray-500 text-center py-12">
+              Aucun auditeur inscrit pour le moment.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {sortedAuditors.map((auditor, i) => (
+                <AuditorCard key={auditor.address} auditor={auditor} rank={i + 1} />
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </div>
