@@ -929,6 +929,36 @@ describe("AuditRegistry", () => {
                 /AuditEscrow__AlreadyClaimed/
             );
         });
+
+        it("transfère 30% à l'auditeur si exploit rejeté par la DAO (audit CLOSED)", async () => {
+            await registry.write.reportExploit(
+                [1n, PREUVES_CID],
+                { account: requester.account }
+            );
+            const { daoClient, stop } = await impersonateDao(mockDao.address);
+            await registry.write.resolveIncident([1n, false], { account: daoClient.account });
+            await stop();
+
+            const before = await mockUsdc.read.balanceOf([auditor1.account.address]);
+            await registry.write.claimGuarantee([1n], { account: auditor1.account });
+            const after = await mockUsdc.read.balanceOf([auditor1.account.address]);
+            assert.equal(after - before, ESCROW_AMOUNT * 30n / 100n);
+        });
+
+        it("revert AuditNotValidated si exploit validé par la DAO (garantie réservée au requester)", async () => {
+            await registry.write.reportExploit(
+                [1n, PREUVES_CID],
+                { account: requester.account }
+            );
+            const { daoClient, stop } = await impersonateDao(mockDao.address);
+            await registry.write.resolveIncident([1n, true], { account: daoClient.account });
+            await stop();
+
+            await assert.rejects(
+                registry.write.claimGuarantee([1n], { account: auditor1.account }),
+                /AuditRegistry__AuditNotValidated/
+            );
+        });
     });
 
     // =========================================================================
@@ -1115,6 +1145,96 @@ describe("AuditRegistry", () => {
                 [1n, false]
             );
             await stop();
+        });
+    });
+
+    // =========================================================================
+    // claimGuaranteeAfterExploit()
+    // =========================================================================
+
+    describe("claimGuaranteeAfterExploit()", () => {
+        beforeEach(async () => {
+            await registry.write.registerAuditor(
+                ["alice", ["DeFi"]],
+                { account: auditor1.account }
+            );
+            await registry.write.depositAudit(
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                { account: requester.account }
+            );
+            await registry.write.validateAudit(
+                [1n, GUARANTEE_DURATION],
+                { account: auditor1.account }
+            );
+            await registry.write.reportExploit(
+                [1n, PREUVES_CID],
+                { account: requester.account }
+            );
+        });
+
+        it("transfère la garantie (30%) au requester après exploit validé", async () => {
+            const { daoClient, stop } = await impersonateDao(mockDao.address);
+            await registry.write.resolveIncident([1n, true], { account: daoClient.account });
+            await stop();
+
+            const before = await mockUsdc.read.balanceOf([requester.account.address]);
+            await registry.write.claimGuaranteeAfterExploit([1n], { account: requester.account });
+            const after = await mockUsdc.read.balanceOf([requester.account.address]);
+            assert.equal(after - before, ESCROW_AMOUNT * 30n / 100n);
+        });
+
+        it("revert ExploitNotValidated si exploit rejeté par la DAO", async () => {
+            const { daoClient, stop } = await impersonateDao(mockDao.address);
+            await registry.write.resolveIncident([1n, false], { account: daoClient.account });
+            await stop();
+
+            await assert.rejects(
+                registry.write.claimGuaranteeAfterExploit([1n], { account: requester.account }),
+                /AuditRegistry__ExploitNotValidated/
+            );
+        });
+
+        it("revert AuditNotClosed si audit pas encore résolu", async () => {
+            await assert.rejects(
+                registry.write.claimGuaranteeAfterExploit([1n], { account: requester.account }),
+                /AuditRegistry__AuditNotClosed/
+            );
+        });
+
+        it("revert NotTheRequester si mauvais appelant", async () => {
+            const { daoClient, stop } = await impersonateDao(mockDao.address);
+            await registry.write.resolveIncident([1n, true], { account: daoClient.account });
+            await stop();
+
+            await assert.rejects(
+                registry.write.claimGuaranteeAfterExploit([1n], { account: stranger.account }),
+                /AuditRegistry__NotTheRequester/
+            );
+        });
+
+        it("revert AlreadyClaimed si réclamé deux fois", async () => {
+            const { daoClient, stop } = await impersonateDao(mockDao.address);
+            await registry.write.resolveIncident([1n, true], { account: daoClient.account });
+            await stop();
+
+            await registry.write.claimGuaranteeAfterExploit([1n], { account: requester.account });
+            await assert.rejects(
+                registry.write.claimGuaranteeAfterExploit([1n], { account: requester.account }),
+                /AuditEscrow__AlreadyClaimed/
+            );
+        });
+
+        it("event GuaranteeClaimedByRequester émis correctement", async () => {
+            const { daoClient, stop } = await impersonateDao(mockDao.address);
+            await registry.write.resolveIncident([1n, true], { account: daoClient.account });
+            await stop();
+
+            await viem.assertions.emitWithArgs(
+                registry.write.claimGuaranteeAfterExploit([1n], { account: requester.account }),
+                registry,
+                "GuaranteeClaimedByRequester",
+                [1n, getAddress(requester.account.address), ESCROW_AMOUNT * 30n / 100n]
+            );
         });
     });
 

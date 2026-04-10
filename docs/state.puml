@@ -1,0 +1,46 @@
+@startuml state
+title État d'un audit — AuditRegistry
+
+[*] --> PENDING : depositAudit()\n[Demandeur]
+
+' ── Chemin nominal ──────────────────────────────────────────────────────────
+PENDING --> VALIDATED : validateAudit(guaranteeDuration)\n[Auditeur désigné, dans les 10 jours]
+
+' ── Timeout ─────────────────────────────────────────────────────────────────
+PENDING --> CLOSED : claimRefundAfterTimeout()\n[Demandeur, après 10 jours sans validation]\n→ AuditEscrow rembourse 95 USDC
+
+' ── Détail de l'état VALIDATED ───────────────────────────────────────────────
+state VALIDATED {
+  state "Paiement immédiat (70 %)" as Pay {
+    [*]             --> PayDisponible
+    PayDisponible   --> PayRéclamé : claimPayment()\n[Auditeur, sans délai]
+  }
+
+  state "Retenue de garantie (30 %)" as Guar {
+    [*]              --> GuarBloquée
+    GuarBloquée      --> GuarDisponible : block.timestamp ≥ guaranteeEnd
+    GuarDisponible   --> GuarRéclamée : claimGuarantee()\n[Auditeur]
+  }
+
+  state "Incident" as Inc {
+    [*]          --> PasIncident
+    PasIncident  --> IncidentOuvert : reportExploit()\n[Demandeur, pendant la garantie]
+    IncidentOuvert --> IncidentClos : resolveIncident(validated)\n[DAO]
+  }
+}
+
+' ── Résolution d'incident → fermeture ────────────────────────────────────────
+VALIDATED --> CLOSED : resolveIncident(validated=true)\n[DAO] → exploitValidated=true\nguarantie (30 %) → requester\nvia claimGuaranteeAfterExploit()
+
+VALIDATED --> CLOSED : resolveIncident(validated=false)\n[DAO] → exploitValidated=false\nguarantie (30 %) → auditeur\nvia claimGuarantee()
+
+CLOSED --> [*]
+
+note right of CLOSED
+  L'audit est fermé dans trois cas :
+  1. resolveIncident(true)  → requester réclame la garantie (claimGuaranteeAfterExploit)
+  2. resolveIncident(false) → auditeur réclame la garantie  (claimGuarantee)
+  3. claimRefundAfterTimeout() → demandeur remboursé (95 USDC)
+end note
+
+@enduml

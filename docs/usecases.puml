@@ -1,0 +1,59 @@
+@startuml usecases
+title Cas d'utilisation — AuditRegistry
+
+left to right direction
+
+actor "Auditeur"  as A
+actor "Demandeur" as D
+actor "DAO"       as DAO
+actor "Owner"     as O
+
+rectangle "Protocole AuditRegistry" {
+
+  package "Gestion de l'auditeur" {
+    usecase "S'inscrire"                         as UC_REGISTER
+    usecase "Mettre à jour ses spécialités"      as UC_SPECIALTIES
+    usecase "Valider un audit"                   as UC_VALIDATE
+    usecase "Réclamer le paiement (70 %)"        as UC_CLAIM_PAYMENT
+    usecase "Réclamer la garantie (30 %)"        as UC_CLAIM_GUARANTEE
+  }
+
+  package "Gestion du demandeur" {
+    usecase "Déposer un audit"                        as UC_DEPOSIT
+    usecase "Réclamer un remboursement (timeout)"     as UC_REFUND
+    usecase "Signaler un exploit"                     as UC_EXPLOIT
+    usecase "Récupérer la garantie (30 %)\naprès exploit validé" as UC_CLAIM_GUARANTEE_EXPLOIT
+  }
+
+  package "Gouvernance" {
+    usecase "Résoudre un incident"               as UC_RESOLVE
+  }
+
+  package "Administration" {
+    usecase "Lier les contrats\n(setRegistryAddress)" as UC_LINK
+  }
+}
+
+A   --> UC_REGISTER
+A   --> UC_SPECIALTIES
+A   --> UC_VALIDATE
+A   --> UC_CLAIM_PAYMENT
+A   --> UC_CLAIM_GUARANTEE
+
+D   --> UC_DEPOSIT
+D   --> UC_REFUND
+D   --> UC_EXPLOIT
+D   --> UC_CLAIM_GUARANTEE_EXPLOIT
+
+DAO --> UC_RESOLVE
+O   --> UC_LINK
+
+UC_VALIDATE      ..> UC_DEPOSIT        : <<include>>\naudit PENDING requis
+UC_CLAIM_PAYMENT ..> UC_VALIDATE       : <<include>>\naudit VALIDATED requis
+UC_CLAIM_GUARANTEE ..> UC_VALIDATE     : <<include>>\nguaranteeEnd atteint\nou exploit rejeté (CLOSED)
+UC_EXPLOIT       ..> UC_VALIDATE       : <<include>>\npendant la garantie
+UC_REFUND        ..> UC_DEPOSIT        : <<include>>\naprès 10 j sans validation
+UC_RESOLVE                 ..> UC_EXPLOIT               : <<include>>
+UC_CLAIM_GUARANTEE_EXPLOIT ..> UC_RESOLVE               : <<extend>>\nexploit validé par la DAO
+
+@enduml

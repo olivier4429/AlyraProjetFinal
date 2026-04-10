@@ -1,0 +1,94 @@
+@startuml sequence
+title Flux principaux du protocole AuditRegistry
+
+actor       Auditeur   as A
+actor       Demandeur  as D
+actor       DAO        as DAO
+participant AuditRegistry  as R
+participant ReputationBadge as B
+participant AuditEscrow    as E
+participant USDC           as U
+participant Treasury       as T
+participant DAOVoting      as V
+
+== Inscription ==
+
+A  -> R : registerAuditor(pseudo, specialties)
+R  -> B : mintNft(auditor)
+B --> A : ERC721 token #N  (soul-bound)
+R --> A : <<event>> AuditorRegistered
+
+== Dépôt d'un audit (4) ==
+
+D  -> U : approve(registry, 100 USDC)
+D  -> R : depositAudit(auditor, contractAddr, reportCID, 100 USDC)
+R  -> U : transferFrom(requester → treasury,  5 USDC)
+R  -> U : transferFrom(requester → escrow,   95 USDC)
+R --> D : <<event>> AuditDeposited(auditId=1)
+
+== Validation (5a) ==
+
+A  -> R : validateAudit(auditId=1, guaranteeDuration=90j)
+R  -> E : lockFunds(auditId, auditor, requester, 95 USDC)
+note right of E
+  Ventilation interne :
+  immediateAmount = 66,5 USDC (70 %)
+  guaranteeAmount = 28,5 USDC (30 %)
+end note
+R  -> B : incAudits(tokenId, amount)
+R --> A : <<event>> AuditValidated(guaranteeEnd)
+
+== Récupération du paiement (pull payment, sans délai) (6a) ==
+
+A  -> R : claimPayment(auditId=1)
+R  -> E : releasePayment(auditId, auditor)
+E  -> U : transfer(auditor, 66,5 USDC)
+E --> A : <<event>> PaymentReleased
+
+== Récupération de la garantie (après guaranteeEnd ou après refus) (7a) ==
+
+A  -> R : claimGuarantee(auditId=1)
+note right of R : vérifie block.timestamp ≥ guaranteeEnd
+R  -> E : releaseGuarantee(auditId, auditor)
+E  -> U : transfer(auditor, 28,5 USDC)
+E --> A : <<event>> GuaranteeReleased
+
+== Remboursement après timeout (alternatif) (5b) ==
+
+note over D : 10 jours écoulés sans validation
+D  -> R : claimRefundAfterTimeout(auditId=1)
+R  -> E : refund(auditId, requester, 95 USDC)
+E  -> U : transfer(requester, 95 USDC)
+R --> D : <<event>> RefundClaimed
+
+== Signalement d'exploit (alternatif, pendant la garantie) (8a) ==
+
+D  -> R : reportExploit(auditId=1, preuvesCID)
+R  -> V : createIncident(auditId, reporter, preuvesCID)
+R --> D : <<event>> ExploitReported
+
+DAO -> R : resolveIncident(auditId=1, validated=true)
+R  -> B : incExploits(tokenId)
+R --> DAO : <<event>> IncidentResolved(validated=true)
+
+== Exploit rejeté par la DAO (8b) ==
+
+DAO -> R : resolveIncident(auditId=1, validated=false)
+R --> DAO : <<event>> IncidentResolved(validated=false)
+note over A : audit CLOSED + exploitValidated=false\nl'auditeur récupère sa garantie
+A  -> R : claimGuarantee(auditId=1)
+note right of R : status=CLOSED et exploitValidated=false\n→ autorisé
+R  -> E : releaseGuarantee(auditId, auditor)
+E  -> U : transfer(auditor, 28,5 USDC)
+E --> A : <<event>> GuaranteeReleased
+
+== Récupération de la garantie par le demandeur après exploit validé (9) ==
+
+note over D : audit CLOSED + exploitValidated = true
+D  -> R : claimGuaranteeAfterExploit(auditId=1)
+note right of R : vérifie status=CLOSED et exploitValidated=true
+R  -> E : releaseGuarantee(auditId, requester)
+E  -> U : transfer(requester, 28,5 USDC)
+R --> D : <<event>> GuaranteeClaimedByRequester
+
+@enduml

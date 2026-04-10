@@ -90,9 +90,10 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
         bytes32 reportCID; //256 bits CID IPFS du rapport d'audit
         //Slot 2 : 256 bits
         uint256 amount; //256 bits Montant total de l'audit en USDC
-        //slot 3 : 248 bits
+        //slot 3 : 249 bits
         address auditedContractAddress; //160 bits Contrat audité
-        AuditStatus status; //8 bits Etat de l'audit
+        AuditStatus status;             //8 bits   Etat de l'audit
+        bool exploitValidated;          //1 bit    true si la DAO a validé un exploit sur cet audit
         //Slot 4 : 160 bits
         address requester; //160 bits Adresse du demandeur de l'audit
     }
@@ -152,6 +153,8 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     error AuditRegistry__ValidationTimeout();
     error AuditRegistry__AuditNotValidated();
     error AuditRegistry__GuaranteeNotExpired();
+    error AuditRegistry__ExploitNotValidated();
+    error AuditRegistry__AuditNotClosed();
 
     // =========================================================================
     // Events
@@ -207,6 +210,9 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
 
     /** @notice Émis lors de la résolution d'un incident par la DAO */
     event IncidentResolved(uint256 indexed auditId, bool validated);
+
+    /** @notice Émis quand le demandeur récupère la retenue de garantie après un exploit validé */
+    event GuaranteeClaimedByRequester(uint256 indexed auditId, address indexed requester, uint256 amount);
 
     // =========================================================================
     // Modifiers
@@ -344,6 +350,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
             auditedContractAddress: auditedContractAddress,
             reportCID: reportCID,
             status: AuditStatus.PENDING,
+            exploitValidated: false,
             amount: escrowAmount,
             guaranteeEnd: 0,
             depositedAt: uint40(block.timestamp)
@@ -522,6 +529,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
         // ============ EFFECTS ============
         Audit storage audit = audits[auditId];
         audit.status = AuditStatus.CLOSED;
+        if (validated) audit.exploitValidated = true;
 
         emit IncidentResolved(auditId, validated);
 
@@ -559,8 +567,34 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     function claimGuarantee(uint256 auditId) external nonReentrant {
         Audit storage audit = audits[auditId];
         if (msg.sender != audit.auditor) revert AuditRegistry__NotTheAuditor();
-        if (audit.status != AuditStatus.VALIDATED) revert AuditRegistry__AuditNotValidated();
-        if (block.timestamp < audit.guaranteeEnd) revert AuditRegistry__GuaranteeNotExpired();
+
+        if (audit.status == AuditStatus.VALIDATED) {
+            // Chemin normal : attendre la fin de la période de garantie
+            if (block.timestamp < audit.guaranteeEnd) revert AuditRegistry__GuaranteeNotExpired();
+        } else if (audit.status == AuditStatus.CLOSED && !audit.exploitValidated) {
+            // Exploit rejeté par la DAO : l'auditeur récupère sa garantie sans délai supplémentaire
+        } else {
+            // Audit PENDING, ou CLOSED avec exploit validé (garantie réservée au requester)
+            revert AuditRegistry__AuditNotValidated();
+        }
+
+        AuditEscrow(escrowAddress).releaseGuarantee(auditId, msg.sender);
+    }
+
+    /**
+     * @notice Le demandeur récupère la retenue de garantie (30%) après validation d'un exploit par la DAO.
+     * @dev AuditEscrow.releaseGuarantee() accepte un paramètre `to` : on lui passe le demandeur plutôt que l'auditeur.
+     *      Le délai n'est pas vérifié ici : l'exploit a déjà été signalé et résolu, l'audit est CLOSED.
+     * @param auditId Identifiant de l'audit
+     */
+    function claimGuaranteeAfterExploit(uint256 auditId) external nonReentrant {
+        Audit storage audit = audits[auditId];
+        if (msg.sender != audit.requester)     revert AuditRegistry__NotTheRequester();
+        if (audit.status != AuditStatus.CLOSED) revert AuditRegistry__AuditNotClosed();
+        if (!audit.exploitValidated)            revert AuditRegistry__ExploitNotValidated();
+
+        uint256 guaranteeAmount = (audit.amount * 30) / 100;
+        emit GuaranteeClaimedByRequester(auditId, msg.sender, guaranteeAmount);
 
         AuditEscrow(escrowAddress).releaseGuarantee(auditId, msg.sender);
     }
