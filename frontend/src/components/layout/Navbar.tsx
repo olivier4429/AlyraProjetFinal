@@ -32,6 +32,30 @@ export default function Navbar() {
                 Auditeurs
               </NavLink>
               <NavLink
+                to="/depot"
+                className={({ isActive }) =>
+                  `px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    isActive
+                      ? "bg-blue-500/10 text-blue-400"
+                      : "text-gray-400 hover:text-white hover:bg-[#1F2937]"
+                  }`
+                }
+              >
+                Déposer
+              </NavLink>
+              <NavLink
+                to="/validation"
+                className={({ isActive }) =>
+                  `px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    isActive
+                      ? "bg-blue-500/10 text-blue-400"
+                      : "text-gray-400 hover:text-white hover:bg-[#1F2937]"
+                  }`
+                }
+              >
+                Valider
+              </NavLink>
+              <NavLink
                 to="/inscription"
                 className={({ isActive }) =>
                   `px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${

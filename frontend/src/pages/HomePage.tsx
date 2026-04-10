@@ -38,8 +38,14 @@ export default function HomePage() {
 
           <div className="flex items-center justify-center gap-4 flex-wrap">
             <button
-              onClick={() => navigate("/inscription")}
+              onClick={() => navigate("/depot")}
               className="px-8 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg transition-colors"
+            >
+              Déposer un audit
+            </button>
+            <button
+              onClick={() => navigate("/inscription")}
+              className="px-8 py-3 border border-blue-500/40 text-blue-300 hover:text-white hover:border-blue-500 font-bold rounded-lg transition-colors"
             >
               Devenir auditeur
             </button>
@@ -67,7 +73,7 @@ export default function HomePage() {
           />
           <StatBox
             value={isLoading ? "…" : String(stats.auditCount)}
-            label="Audits réalisés"
+            label="Audits enregistrés"
             accentColor="#22D3EE"
           />
           <StatBox

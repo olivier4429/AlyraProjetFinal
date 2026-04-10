@@ -155,6 +155,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     error AuditRegistry__GuaranteeNotExpired();
     error AuditRegistry__ExploitNotValidated();
     error AuditRegistry__AuditNotClosed();
+    error AuditRegistry__ContractAddressAlreadySet();
 
     // =========================================================================
     // Events
@@ -597,6 +598,30 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
         emit GuaranteeClaimedByRequester(auditId, msg.sender, guaranteeAmount);
 
         AuditEscrow(escrowAddress).releaseGuarantee(auditId, msg.sender);
+    }
+
+    /** @notice Émis quand l'auditeur renseigne l'adresse du contrat après déploiement */
+    event AuditedContractAddressSet(
+        uint256 indexed auditId,
+        address indexed contractAddress
+    );
+
+    /**
+     * @notice Permet à l'auditeur de renseigner l'adresse du contrat audité après son déploiement.
+     * @dev L'auditeur est le seul autorisé : il vérifie que le code déployé correspond
+     *      bien à ce qu'il a audité avant de fournir l'adresse.
+     *      Ne peut être appelé qu'une seule fois : l'adresse ne peut pas être modifiée une fois définie.
+     * @param auditId         Identifiant de l'audit
+     * @param contractAddress Adresse du contrat maintenant déployé on-chain
+     */
+    function setAuditedContractAddress(uint256 auditId, address contractAddress) external {
+        if (contractAddress == address(0)) revert AuditRegistry__ZeroAddress();
+        Audit storage audit = audits[auditId];
+        if (msg.sender != audit.auditor)                revert AuditRegistry__NotTheAuditor();
+        if (audit.auditedContractAddress != address(0)) revert AuditRegistry__ContractAddressAlreadySet();
+
+        audit.auditedContractAddress = contractAddress;
+        emit AuditedContractAddressSet(auditId, contractAddress);
     }
 
     /**

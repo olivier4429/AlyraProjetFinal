@@ -177,6 +177,25 @@ for (let i = 0; i < registrationCount; i++) {
 // Génération d'activités pour l'auditeur 1 avec le demandeur 1
 // =========================================================================
 
+// =========================================================================
+// Mint USDC à tous les comptes de seed
+// =========================================================================
+
+const INITIAL_USDC = parseUnits("100000", 6); // 100 000 USDC par compte
+
+console.log("\n💰 Mint USDC aux comptes de seed...");
+
+const allSeedAccounts = [...auditorAccounts, ...requesterAccounts];
+for (const account of allSeedAccounts) {
+  const hash = await mockUsdc.write.mint([account.address, INITIAL_USDC]);
+  await publicClient.waitForTransactionReceipt({ hash });
+  console.log(`  ✅ ${account.address} → 100 000 USDC`);
+}
+
+// =========================================================================
+// Génération d'activités pour l'auditeur 1 avec le demandeur 1
+// =========================================================================
+
 console.log("\n📋 Génération d'activités pour l'auditeur 1...");
 const auditor1 = auditorAccounts[0];
 const requester1 = requesterAccounts[0];
@@ -184,12 +203,7 @@ const AUDIT_AMOUNT = parseUnits("100", 6); // 100 USDC
 const GUARANTEE_DURATION = 1n; // 1 seconde, on met une garanitie très courte pour accélérer le seed et valider rapidement l'audit. En conditions réelles, ce serait plusieurs jours/mois.s
 const VALID_CID = keccak256(encodePacked(["string"], ["CIDdurapportdauditvalide"]));
 
-// Étape 1 : Mint USDC au requester (MockUSDC est mintable librement)
-// Clé privée NON requise ici : n'importe qui peut appeler mint() sur le mock
-const mintHash = await mockUsdc.write.mint([requester1.address, AUDIT_AMOUNT]);
-await publicClient.waitForTransactionReceipt({ hash: mintHash });
-
-// Étape 2 : Approbation : le requester autorise AuditRegistry à prélever ses USDC
+// Étape 1 : Approbation : le requester autorise AuditRegistry à prélever ses USDC
 // Clé privée requester1 requise : approve() utilise msg.sender comme propriétaire des fonds
 const approveHash = await mockUsdc.write.approve(
   [registry.address, AUDIT_AMOUNT],
@@ -197,7 +211,7 @@ const approveHash = await mockUsdc.write.approve(
 );
 await publicClient.waitForTransactionReceipt({ hash: approveHash });
 
-// Étape 3 : Dépôt de l'audit
+// Étape 2 : Dépôt de l'audit
 // Clé privée requester1 requise : depositAudit() utilise msg.sender comme requester
 const depositHash = await registry.write.depositAudit(
   [auditor1.address, mockUsdc.address, VALID_CID, AUDIT_AMOUNT],
@@ -205,7 +219,7 @@ const depositHash = await registry.write.depositAudit(
 );
 await publicClient.waitForTransactionReceipt({ hash: depositHash });
 
-// Étape 4 : Validation de l'audit
+// Étape 3 : Validation de l'audit
 // Clé privée auditor1 requise : validateAudit() vérifie msg.sender == audit.auditor
 // C'est ici que incAudits() est appelé → le score de réputation est calculé et mis à jour
 const validateHash = await registry.write.validateAudit(
@@ -238,6 +252,7 @@ const setEnvVar = (content: string, key: string, value: string): string => {
 
 envContent = setEnvVar(envContent, "VITE_AUDIT_REGISTRY_ADDRESS", registry.address);
 envContent = setEnvVar(envContent, "VITE_REPUTATION_BADGE_ADDRESS", reputationBadge.address);
+envContent = setEnvVar(envContent, "VITE_USDC_ADDRESS", mockUsdc.address);
 envContent = setEnvVar(envContent, "VITE_DEPLOY_BLOCK", deployBlock.toString());
 
 writeFileSync(envFilePath, envContent);

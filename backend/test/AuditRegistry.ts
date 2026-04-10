@@ -1239,6 +1239,89 @@ describe("AuditRegistry", () => {
     });
 
     // =========================================================================
+    // setAuditedContractAddress()
+    // =========================================================================
+
+    describe("setAuditedContractAddress()", () => {
+        beforeEach(async () => {
+            await registry.write.registerAuditor(
+                ["alice", ["DeFi"]],
+                { account: auditor1.account }
+            );
+            // Dépôt avec adresse(0) : contrat pas encore déployé
+            await registry.write.depositAudit(
+                [auditor1.account.address, zeroAddress, VALID_CID, AUDIT_AMOUNT],
+                { account: requester.account }
+            );
+        });
+
+        it("l'auditeur peut renseigner l'adresse après déploiement", async () => {
+            await registry.write.setAuditedContractAddress(
+                [1n, auditedContract.account.address],
+                { account: auditor1.account }
+            );
+            const audit = await registry.read.getAudit([1n]);
+            assert.equal(getAddress(audit.auditedContractAddress), getAddress(auditedContract.account.address));
+        });
+
+        it("event AuditedContractAddressSet émis", async () => {
+            await viem.assertions.emitWithArgs(
+                registry.write.setAuditedContractAddress(
+                    [1n, auditedContract.account.address],
+                    { account: auditor1.account }
+                ),
+                registry,
+                "AuditedContractAddressSet",
+                [1n, getAddress(auditedContract.account.address)]
+            );
+        });
+
+        it("revert NotTheAuditor si appelé par quelqu'un d'autre", async () => {
+            await assert.rejects(
+                registry.write.setAuditedContractAddress(
+                    [1n, auditedContract.account.address],
+                    { account: stranger.account }
+                ),
+                /AuditRegistry__NotTheAuditor/
+            );
+        });
+
+        it("revert NotTheAuditor si appelé par le requester", async () => {
+            await assert.rejects(
+                registry.write.setAuditedContractAddress(
+                    [1n, auditedContract.account.address],
+                    { account: requester.account }
+                ),
+                /AuditRegistry__NotTheAuditor/
+            );
+        });
+
+        it("revert ZeroAddress si adresse nulle", async () => {
+            await assert.rejects(
+                registry.write.setAuditedContractAddress(
+                    [1n, zeroAddress],
+                    { account: auditor1.account }
+                ),
+                /AuditRegistry__ZeroAddress/
+            );
+        });
+
+        it("revert ContractAddressAlreadySet si appelé deux fois", async () => {
+            await registry.write.setAuditedContractAddress(
+                [1n, auditedContract.account.address],
+                { account: auditor1.account }
+            );
+            await assert.rejects(
+                registry.write.setAuditedContractAddress(
+                    [1n, auditedContract.account.address],
+                    { account: auditor1.account }
+                ),
+                /AuditRegistry__ContractAddressAlreadySet/
+            );
+        });
+    });
+
+    // =========================================================================
     // Scénarios process complet
     // =========================================================================
 

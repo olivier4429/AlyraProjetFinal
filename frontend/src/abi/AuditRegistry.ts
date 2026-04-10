@@ -70,6 +70,23 @@ export const AUDIT_REGISTRY_ABI = [
     ],
     outputs: [],
   },
+  {
+    name: "claimGuaranteeAfterExploit",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "auditId", type: "uint256" }],
+    outputs: [],
+  },
+  {
+    name: "setAuditedContractAddress",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "auditId", type: "uint256" },
+      { name: "contractAddress", type: "address" },
+    ],
+    outputs: [],
+  },
   // ── Fonctions de lecture ─────────────────────────────────────────────────
   {
     name: "auditCount",
@@ -174,6 +191,14 @@ export const AUDIT_REGISTRY_ABI = [
     inputs: [
       { name: "auditId", type: "uint256", indexed: true },
       { name: "validated", type: "bool", indexed: false },
+    ],
+  },
+  {
+    name: "AuditedContractAddressSet",
+    type: "event",
+    inputs: [
+      { name: "auditId", type: "uint256", indexed: true },
+      { name: "contractAddress", type: "address", indexed: true },
     ],
   },
 ] as const;
