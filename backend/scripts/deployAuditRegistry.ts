@@ -2,8 +2,8 @@
  * Script de déploiement complet du protocole.
  *
  * Usage :
- *   npx hardhat run scripts/deployAuditRegistery.ts --network localhost
- *   npx hardhat run scripts/deployAuditRegistery.ts --network sepolia
+ *   npx hardhat run scripts/deployAuditRegistry.ts --network localhost
+ *   npx hardhat run scripts/deployAuditRegistry.ts --network sepolia
  *
  * Déploie dans l'ordre :
  *   1. ReputationBadge
