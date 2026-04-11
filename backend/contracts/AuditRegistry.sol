@@ -84,18 +84,18 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     struct Audit {
         //Slot 0 : 240 bits
         address auditor; //160 bits Adresse de l'auditeur désigné
-        uint40 guaranteeEnd; //40 bits date de fin de la retenue de garantie
+        uint40 guaranteeEnd; //40 bits date de fin de la retenue de garantie: jusqu'au 20 novembre 36812
         uint40 depositedAt; //40 bits timestamp du dépôt de l'audit (ajouté pour gérer le timeout de validation)
         //Slot 1 : 256 bits
-        bytes32 reportCID; //256 bits CID IPFS du rapport d'audit
-        //Slot 2 : 256 bits
-        uint256 amount; //256 bits Montant total de l'audit en USDC
-        //slot 3 : 249 bits
+        uint256 amount; //256 bits Montant total de l'audit en USDC (on pourrait passer à uint96 pour regrouper avec le slot suivant. A voir plus tard, pour l'instant je laisse comme ça pour ne pas avoir à changer trop de code.)
+        //slot 2 : 169 bits
         address auditedContractAddress; //160 bits Contrat audité
         AuditStatus status;             //8 bits   Etat de l'audit
         bool exploitValidated;          //1 bit    true si la DAO a validé un exploit sur cet audit
-        //Slot 4 : 160 bits
+        //Slot 3 : 160 bits
         address requester; //160 bits Adresse du demandeur de l'audit
+        //Slot 4 et + : dynamique
+        string reportCID; //CID IPFS du rapport d'audit (ex : "QmXxx..." ou "ipfs://...")
     }
 
     /**
@@ -183,7 +183,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
         address indexed auditor,
         address indexed requester,
         address auditedContractAddress,
-        bytes32 reportCID,
+        string reportCID,
         uint256 amount
     );
 
@@ -199,7 +199,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     event ExploitReported(
         uint256 indexed auditId,
         address indexed requester,
-        bytes32 preuvesCID
+        string preuvesCID
     );
 
     /** @notice Émis lors d'une réclamation de remboursement après timeout de validation */
@@ -325,18 +325,18 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
      *      modifier onlyRegisteredAuditor(auditor) pour vérifier que l'auditeur désigné est bien inscrit et actif
      * @param auditor                Adresse de l'auditeur désigné
      * @param auditedContractAddress Adresse du smart contract audité
-     * @param reportCID              CID IPFS du rapport encodé en bytes32
+     * @param reportCID              CID IPFS du rapport (ex : "QmXxx...")
      * @param amount                 Montant total en USDC (6 décimales)
      */
     function depositAudit(
         address auditor,
         address auditedContractAddress,
-        bytes32 reportCID,
+        string calldata reportCID,
         uint256 amount
     ) external nonReentrant onlyRegisteredAuditor(auditor) {
         // ============ CHECKS ============
         if (amount == 0) revert AuditRegistry__AmountZero();
-        if (reportCID == bytes32(0)) revert AuditRegistry__EmptyCID();
+        if (bytes(reportCID).length == 0) revert AuditRegistry__EmptyCID();
         if (hasPendingAudit[msg.sender][auditor])
             revert AuditRegistry__AuditAlreadyPending();
 
@@ -488,7 +488,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
      * @param auditId    Identifiant de l'audit
      * @param preuvesCID CID IPFS des preuves (optionnel : bytes32(0) si absent)
      */
-    function reportExploit(uint256 auditId, bytes32 preuvesCID) external {
+    function reportExploit(uint256 auditId, string calldata preuvesCID) external {
         // ============ CHECKS ============
         Audit storage audit = audits[auditId];
 
@@ -644,6 +644,6 @@ interface IDaoVoting {
     function createIncident(
         uint256 auditId,
         address reporter,
-        bytes32 preuvesCID
+        string calldata preuvesCID
     ) external;
 }

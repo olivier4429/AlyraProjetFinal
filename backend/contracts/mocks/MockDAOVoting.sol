@@ -61,7 +61,7 @@ contract MockDAOVoting {
     struct CreateIncidentCall {
         uint256 auditId;
         address reporter;
-        bytes32 preuvesCID;
+        string preuvesCID;
     }
 
     // =========================================================================
@@ -87,7 +87,7 @@ contract MockDAOVoting {
     function createIncident(
         uint256 auditId,
         address reporter,
-        bytes32 preuvesCID
+        string calldata preuvesCID
     ) external {
         incidents[auditId] = true;
         createIncidentCalls.push(CreateIncidentCall(auditId, reporter, preuvesCID));

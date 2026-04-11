@@ -24,7 +24,7 @@ export const AUDIT_REGISTRY_ABI = [
     inputs: [
       { name: "auditor", type: "address" },
       { name: "auditedContractAddress", type: "address" },
-      { name: "reportCID", type: "bytes32" },
+      { name: "reportCID", type: "string" },
       { name: "amount", type: "uint256" },
     ],
     outputs: [],
@@ -66,7 +66,7 @@ export const AUDIT_REGISTRY_ABI = [
     stateMutability: "nonpayable",
     inputs: [
       { name: "auditId", type: "uint256" },
-      { name: "preuvesCID", type: "bytes32" },
+      { name: "preuvesCID", type: "string" },
     ],
     outputs: [],
   },
@@ -108,7 +108,7 @@ export const AUDIT_REGISTRY_ABI = [
           { name: "auditor", type: "address" },
           { name: "guaranteeEnd", type: "uint40" },
           { name: "depositedAt", type: "uint40" },
-          { name: "reportCID", type: "bytes32" },
+          { name: "reportCID", type: "string" },
           { name: "amount", type: "uint256" },
           { name: "auditedContractAddress", type: "address" },
           { name: "status", type: "uint8" },
@@ -153,7 +153,7 @@ export const AUDIT_REGISTRY_ABI = [
       { name: "auditor", type: "address", indexed: true },
       { name: "requester", type: "address", indexed: true },
       { name: "auditedContractAddress", type: "address", indexed: false },
-      { name: "reportCID", type: "bytes32", indexed: false },
+      { name: "reportCID", type: "string", indexed: false },
       { name: "amount", type: "uint256", indexed: false },
     ],
   },
@@ -182,7 +182,7 @@ export const AUDIT_REGISTRY_ABI = [
     inputs: [
       { name: "auditId", type: "uint256", indexed: true },
       { name: "requester", type: "address", indexed: true },
-      { name: "preuvesCID", type: "bytes32", indexed: false },
+      { name: "preuvesCID", type: "string", indexed: false },
     ],
   },
   {

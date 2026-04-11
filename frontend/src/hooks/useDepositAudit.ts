@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { keccak256, toBytes, parseUnits } from "viem";
+import { parseUnits } from "viem";
 import type { Address } from "viem";
 import { AUDIT_REGISTRY_ABI } from "../abi/AuditRegistry";
 import { USDC_ABI } from "../abi/MockUSDC";
@@ -9,7 +9,7 @@ import { AUDIT_REGISTRY_ADDRESS, USDC_ADDRESS } from "../constants/contracts";
 export interface DepositParams {
   auditor: Address;
   auditedContractAddress: Address;
-  /** CID IPFS en texte brut — converti en bytes32 via keccak256 */
+  /** CID IPFS en texte brut (ex : "QmXxx...") — stocké tel quel on-chain */
   reportCid: string;
   /** Montant en USDC lisible (ex : "100") — converti en 6 décimales */
   amountUsdc: string;
@@ -69,7 +69,7 @@ export function useDepositAudit() {
   const pendingRef = useRef<{
     auditor: Address;
     auditedContractAddress: Address;
-    reportCID: `0x${string}`;
+    reportCID: string;
     amount: bigint;
   } | null>(null);
 
@@ -91,7 +91,7 @@ export function useDepositAudit() {
 
   function startFlow(params: DepositParams) {
     const amount = parseUnits(params.amountUsdc, 6);
-    const reportCID = keccak256(toBytes(params.reportCid)) as `0x${string}`;
+    const reportCID = params.reportCid;
 
     pendingRef.current = {
       auditor: params.auditor,

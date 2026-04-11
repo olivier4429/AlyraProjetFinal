@@ -4,8 +4,6 @@ import { network } from "hardhat";
 import {
     getAddress,
     parseUnits,
-    encodePacked,
-    keccak256,
     zeroAddress,
     Address,
 } from "viem";
@@ -22,9 +20,9 @@ const ESCROW_AMOUNT = parseUnits("95", 6);   // 95% = 95 USDC
 const GUARANTEE_DURATION = 90n * 24n * 60n * 60n; // 90 jours en secondes
 const VALIDATION_TIMEOUT = 10n * 24n * 60n * 60n; // 10 jours en secondes
 
-const VALID_CID = keccak256(encodePacked(["string"], ["QmTest123"])); //CID du rapport d'audit valide
-const PREUVES_CID = keccak256(encodePacked(["string"], ["QmPreuves456"])); //CID de l'exploit
-const EMPTY_CID: Address = `0x${"0".repeat(64)}`; //CID vide
+const VALID_CID = "QmTest123ipfsCIDdurapportdauditvalide"; //CID du rapport d'audit valide
+const PREUVES_CID = "QmPreuves456ipfsCIDdelexploit"; //CID de l'exploit
+const EMPTY_CID = ""; //CID vide
 const SVG_IMAGE = "<svg xmlns='http://www.w3.org/2000/svg'><text>TEST</text></svg>";
 
 /** @notice pourc caster en unint40. */
@@ -501,7 +499,7 @@ describe("AuditRegistry", () => {
             );
         });
 
-        it("revert EmptyCID si reportCID == bytes32(0)", async () => {
+        it("revert EmptyCID si reportCID vide", async () => {
             await assert.rejects(
                 registry.write.depositAudit(
                     [auditor1.account.address, auditedContract.account.address, EMPTY_CID, AUDIT_AMOUNT],
@@ -1001,7 +999,7 @@ describe("AuditRegistry", () => {
             assert.equal(lastCall.preuvesCID, PREUVES_CID);
         });
 
-        it("preuvesCID optionnel : bytes32(0) accepté", async () => {
+        it("preuvesCID optionnel : chaîne vide acceptée", async () => {
             await assert.doesNotReject(
                 registry.write.reportExploit(
                     [1n, EMPTY_CID],
