@@ -1,5 +1,5 @@
 @startuml usecases
-title Cas d'utilisation — AuditRegistry
+title Cas d'utilisation - AuditRegistry
 
 left to right direction
 

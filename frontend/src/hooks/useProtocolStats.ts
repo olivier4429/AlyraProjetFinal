@@ -70,7 +70,7 @@ export function useProtocolStats(auditors: Auditor[]): ProtocolStats {
   const totalVolumeUsdc =
     rawVolume > 0n
       ? `${Math.round(Number(formatUnits(rawVolume, 6))).toLocaleString("fr-FR")} USDC`
-      : "—";
+      : "-";
 
   return { auditorCount, auditCount, exploitFreePercent, totalVolumeUsdc };
 }

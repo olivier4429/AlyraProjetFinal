@@ -6,7 +6,7 @@ import { AUDIT_REGISTRY_ADDRESS, DEPLOY_BLOCK } from "../constants/contracts";
 import type { AuditEntry } from "./useAuditorAudits";
 
 /**
- * Charge tous les audits enregistrés on-chain (sans filtre d'auditeur).
+ * Liste tous les audits enregistrés on-chain (sans filtre d'auditeur).
  * Stratégie : getContractEvents(AuditDeposited) → getAudit(id) pour l'état courant.
  */
 export function useAllAudits() {

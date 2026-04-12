@@ -3,7 +3,8 @@ import { formatUnits } from "viem";
 import { useAccount } from "wagmi";
 import type { Address } from "viem";
 import { useAuditorAudits, AuditStatus } from "../hooks/useAuditorAudits";
-import { useValidateAudit, useClaimGuarantee } from "../hooks/useAuditRegistry";
+import { useValidateAudit, useClaimPayment, useClaimGuarantee, useSetAuditedContractAddress } from "../hooks/useAuditRegistry";
+import { usePaymentClaimed } from "../hooks/usePaymentClaimed";
 import { useGuaranteeClaimed } from "../hooks/useGuaranteeClaimed";
 import Alert from "../components/ui/Alert";
 
@@ -32,21 +33,28 @@ function formatTimeRemaining(depositedAt: number): { label: string; urgent: bool
 
 // ── Section réclamation garantie ──────────────────────────────────────────────
 
-interface ClaimSectionProps {
+// ── Section générique de réclamation ─────────────────────────────────────────
+
+interface ClaimRowProps {
   auditId: bigint;
-  guaranteeAmount: bigint;
+  label: string;
+  amount: bigint;
   onClaimed: () => void;
+  useClaimHook: () => {
+    claim: (id: bigint) => void;
+    isSignaturePending: boolean;
+    isConfirming: boolean;
+    isSuccess: boolean;
+    error: Error | null;
+    reset: () => void;
+  };
 }
 
-function ClaimSection({ auditId, guaranteeAmount, onClaimed }: ClaimSectionProps) {
-  const { claim, isSignaturePending, isConfirming, isSuccess, error, reset } =
-    useClaimGuarantee();
+function ClaimRow({ auditId, label, amount, onClaimed, useClaimHook }: ClaimRowProps) {
+  const { claim, isSignaturePending, isConfirming, isSuccess, error, reset } = useClaimHook();
 
   useEffect(() => {
-    if (isSuccess) {
-      onClaimed();
-      reset();
-    }
+    if (isSuccess) { onClaimed(); reset(); }
   }, [isSuccess]);
 
   const isLoading = isSignaturePending || isConfirming;
@@ -54,14 +62,11 @@ function ClaimSection({ auditId, guaranteeAmount, onClaimed }: ClaimSectionProps
   return (
     <div className="border-t border-[#374151] pt-4 flex flex-col gap-3">
       <div className="flex items-center justify-between text-sm">
-        <span className="text-gray-400">
-          Retenue de garantie disponible
-        </span>
+        <span className="text-gray-400">{label}</span>
         <span className="text-green-400 font-bold font-mono">
-          +{Number(formatUnits(guaranteeAmount, 6)).toFixed(2)} USDC
+          +{Number(formatUnits(amount, 6)).toFixed(2)} USDC
         </span>
       </div>
-
       {isSignaturePending && (
         <Alert variant="warn">
           <div className="flex items-center gap-2">
@@ -70,28 +75,15 @@ function ClaimSection({ auditId, guaranteeAmount, onClaimed }: ClaimSectionProps
           </div>
         </Alert>
       )}
-      {isConfirming && (
-        <Alert variant="info">Transaction envoyée, en attente de confirmation…</Alert>
-      )}
-      {error && (
-        <Alert variant="danger">
-          <span className="text-xs">{error.message?.slice(0, 150)}</span>
-        </Alert>
-      )}
-
+      {isConfirming && <Alert variant="info">Transaction envoyée, en attente de confirmation…</Alert>}
+      {error && <Alert variant="danger"><span className="text-xs">{error.message?.slice(0, 150)}</span></Alert>}
       <button
         onClick={() => claim(auditId)}
         disabled={isLoading}
         className="w-full px-4 py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-green-600/40 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
       >
-        {isLoading && (
-          <span className="animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full" />
-        )}
-        {isSignaturePending
-          ? "Signature…"
-          : isConfirming
-          ? "Confirmation…"
-          : "Récupérer la retenue de garantie"}
+        {isLoading && <span className="animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full" />}
+        {isSignaturePending ? "Signature…" : isConfirming ? "Confirmation…" : label}
       </button>
     </div>
   );
@@ -111,6 +103,47 @@ interface AuditCardProps {
   status: number;
   exploitValidated: boolean;
   onRefresh: (auditId: bigint) => void;
+}
+
+function SetContractAddressForm({ auditId, onSuccess }: { auditId: bigint; onSuccess: () => void }) {
+  const [value, setValue] = useState("");
+  const { setAddress, isSignaturePending, isConfirming, isSuccess, error, reset } =
+    useSetAuditedContractAddress();
+
+  useEffect(() => {
+    if (isSuccess) { onSuccess(); reset(); }
+  }, [isSuccess]);
+
+  const isLoading = isSignaturePending || isConfirming;
+  const isValid = /^0x[0-9a-fA-F]{40}$/.test(value);
+
+  return (
+    <div className="border-t border-[#374151] pt-4 flex flex-col gap-3">
+      <p className="text-xs text-gray-400">
+        Le contrat audité n'est pas encore déployé. Définissez son adresse une fois déployé.
+      </p>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="0x..."
+          disabled={isLoading}
+          className="flex-1 bg-[#1F2937] border border-[#374151] rounded-lg px-3 py-2 text-white text-xs font-mono placeholder-gray-600 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+        />
+        <button
+          onClick={() => setAddress(auditId, value as `0x${string}`)}
+          disabled={isLoading || !isValid}
+          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/30 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors text-xs shrink-0"
+        >
+          {isLoading ? "…" : "Définir"}
+        </button>
+      </div>
+      {isSignaturePending && <Alert variant="warn"><div className="flex items-center gap-2"><span className="animate-spin inline-block w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full" />Signez dans votre wallet…</div></Alert>}
+      {isConfirming && <Alert variant="info">En attente de confirmation…</Alert>}
+      {error && <Alert variant="danger"><span className="text-xs">{error.message?.slice(0, 150)}</span></Alert>}
+    </div>
+  );
 }
 
 function AuditCard({
@@ -135,16 +168,12 @@ function AuditCard({
   const isClosed = status === AuditStatus.CLOSED;
   const timeInfo = isPending ? formatTimeRemaining(depositedAt) : null;
 
-  const { claimed: guaranteeClaimed, claimedAmount: guaranteeAmount } = useGuaranteeClaimed(
-    auditId,
-    isValidated || isClosed,
-  );
+  const { claimed: paymentClaimed } = usePaymentClaimed(auditId, isValidated || isClosed);
+  const { claimed: guaranteeClaimed } = useGuaranteeClaimed(auditId, isValidated || isClosed);
 
   const now = Math.floor(Date.now() / 1000);
-  // Peut réclamer si :
-  // - VALIDATED et garantieEnd passée
-  // - CLOSED et exploit NON validé (DAO a rejeté)
-  const canClaim =
+  const canClaimPayment = !paymentClaimed && (isValidated || isClosed);
+  const canClaimGuarantee =
     !guaranteeClaimed &&
     ((isValidated && guaranteeEnd > 0 && now >= guaranteeEnd) ||
       (isClosed && !exploitValidated));
@@ -184,6 +213,11 @@ function AuditCard({
           >
             {isPending ? "En attente" : isValidated ? "Validé" : "Clôturé"}
           </span>
+          {paymentClaimed && (
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">
+              Paiement réclamé
+            </span>
+          )}
           {guaranteeClaimed && (
             <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">
               Garantie réclamée
@@ -237,11 +271,16 @@ function AuditCard({
         )}
       </div>
 
+      {/* Définir l'adresse du contrat audité */}
+      {auditedContractAddress === ZERO_ADDRESS && (
+        <SetContractAddressForm auditId={auditId} onSuccess={() => onRefresh(auditId)} />
+      )}
+
       {/* Ventilation */}
       <div className="bg-[#0A0E1A] border border-[#374151] rounded-lg px-4 py-2.5 flex gap-6 text-xs text-gray-400">
         <div className="flex flex-col gap-0.5">
           <span>Paiement immédiat (70%)</span>
-          <span className="text-white font-mono">
+          <span className={`font-mono ${paymentClaimed ? "text-green-400 line-through" : "text-white"}`}>
             {Number(formatUnits((amount * 95n / 100n) * 70n / 100n, 6)).toFixed(2)} USDC
           </span>
         </div>
@@ -270,7 +309,7 @@ function AuditCard({
                 <p className="text-xs text-gray-500">
                   Garantie de{" "}
                   <span className="text-gray-300">{Math.round(guaranteeDuration / 86400)} jours</span>
-                  {" "}— expirera vers le{" "}
+                  {" "}- expirera vers le{" "}
                   <span className="text-gray-300">
                     {new Date((now + guaranteeDuration) * 1000).toLocaleDateString("fr-FR")}
                   </span>
@@ -319,20 +358,33 @@ function AuditCard({
         </>
       )}
 
-      {/* Zone réclamation garantie */}
-      {canClaim && (
-        <ClaimSection
+      {/* Zone réclamation paiement immédiat */}
+      {canClaimPayment && (
+        <ClaimRow
           auditId={auditId}
-          guaranteeAmount={BigInt(guaranteeAmount)}
+          label="Récupérer le paiement immédiat (70%)"
+          amount={amount * 95n / 100n * 70n / 100n}
           onClaimed={() => onRefresh(auditId)}
+          useClaimHook={useClaimPayment}
         />
       )}
 
-      {/* Exploit validé — la garantie va au demandeur */}
+      {/* Zone réclamation garantie */}
+      {canClaimGuarantee && (
+        <ClaimRow
+          auditId={auditId}
+          label="Récupérer la retenue de garantie (30%)"
+          amount={amount * 95n / 100n * 30n / 100n}
+          onClaimed={() => onRefresh(auditId)}
+          useClaimHook={useClaimGuarantee}
+        />
+      )}
+
+      {/* Exploit validé - la garantie va au demandeur */}
       {isClosed && exploitValidated && !guaranteeClaimed && (
         <div className="border-t border-[#374151] pt-4">
           <p className="text-xs text-rose-400 text-center">
-            Exploit validé par la DAO — la retenue de garantie a été attribuée au demandeur.
+            Exploit validé par la DAO - la retenue de garantie a été attribuée au demandeur.
           </p>
         </div>
       )}

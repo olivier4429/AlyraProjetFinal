@@ -9,9 +9,9 @@ import { AUDIT_REGISTRY_ADDRESS, USDC_ADDRESS } from "../constants/contracts";
 export interface DepositParams {
   auditor: Address;
   auditedContractAddress: Address;
-  /** CID IPFS en texte brut (ex : "QmXxx...") — stocké tel quel on-chain */
+  /** CID IPFS en texte brut (ex : "QmXxx...") - stocké tel quel on-chain */
   reportCid: string;
-  /** Montant en USDC lisible (ex : "100") — converti en 6 décimales */
+  /** Montant en USDC lisible (ex : "100") - converti en 6 décimales */
   amountUsdc: string;
   /** Durée de garantie en secondes (ex : 90 * 24 * 3600) */
   guaranteeDuration: number;

@@ -9,13 +9,7 @@ const STEPS: Step[] = [
   { number: 3, label: "Confirmation" },
 ];
 
-interface RegistrationStepperProps {
-  currentStep: number;
-}
-
-export default function RegistrationStepper({
-  currentStep,
-}: RegistrationStepperProps) {
+export default function RegistrationStepper({ currentStep }: { currentStep: number }) {
   return (
     <div className="flex items-center justify-center gap-0 mb-8">
       {STEPS.map((step, index) => {

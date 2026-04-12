@@ -239,10 +239,10 @@ export default function DepositPage() {
               disabled={isInProgress}
               className="w-full bg-[#1F2937] border border-[#374151] rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50"
             >
-              <option value="">— Choisir un auditeur —</option>
+              <option value="">- Choisir un auditeur -</option>
               {auditors.filter((a) => a.isActive && a.address.toLowerCase() !== address?.toLowerCase()).map((a) => (
                 <option key={a.address} value={a.address}>
-                  {a.pseudo} — {shortenAddress(a.address)} (score {a.reputationScore})
+                  {a.pseudo} - {shortenAddress(a.address)} (score {a.reputationScore})
                 </option>
               ))}
             </select>
@@ -261,14 +261,14 @@ export default function DepositPage() {
             value={contractAddress}
             onChange={(e) => { setContractAddress(e.target.value); setFormErrors((p) => ({ ...p, contractAddress: "" })); }}
             disabled={isInProgress}
-            placeholder="0x… — laisser vide si pas encore déployé"
+            placeholder="0x… - laisser vide si pas encore déployé"
             className="w-full bg-[#1F2937] border border-[#374151] rounded-lg px-4 py-2.5 text-white placeholder-gray-500 font-mono text-sm focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50"
           />
           {formErrors.contractAddress
             ? <span className="text-xs text-rose-400">{formErrors.contractAddress}</span>
             : <span className="text-xs text-gray-500">
                 Adresse on-chain du contrat audité. Si le contrat n'est pas encore déployé,
-                laissez vide — l'adresse sera <span className="font-mono">0x000…000</span>.
+                laissez vide - l'adresse sera <span className="font-mono">0x000…000</span>.
               </span>
           }
         </div>
@@ -401,7 +401,7 @@ export default function DepositPage() {
         )}
       </div>
 
-      {/* Status des transactions — visible dès le lancement */}
+      {/* Status des transactions - visible dès le lancement */}
       {step !== "idle" && (
         <div className="bg-[#111827] border border-[#374151] rounded-2xl p-6 flex flex-col gap-4">
           <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">

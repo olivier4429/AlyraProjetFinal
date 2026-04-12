@@ -1,5 +1,5 @@
 @startuml deployment
-title Déploiement — AuditRegistry
+title Déploiement - AuditRegistry
 
 node "Navigateur\nutilisateur" as Browser {
   component "Frontend React\n(Wagmi · Viem · AppKit)" as UI

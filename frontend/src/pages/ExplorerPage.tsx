@@ -10,7 +10,7 @@ function shortenAddress(addr: string) {
 }
 
 function shortenCid(cid: string) {
-  if (!cid || cid.length <= 20) return cid || "—";
+  if (!cid || cid.length <= 20) return cid || "-";
   return `${cid.slice(0, 10)}…${cid.slice(-6)}`;
 }
 
@@ -85,7 +85,7 @@ function AuditRow({
       ? new Date(guaranteeEnd * 1000).toLocaleDateString("fr-FR")
       : guaranteeDuration > 0
       ? `~${new Date((depositedAt + guaranteeDuration) * 1000).toLocaleDateString("fr-FR")} (estimé)`
-      : "—";
+      : "-";
 
   return (
     <div
@@ -93,7 +93,7 @@ function AuditRow({
         expanded ? "border-[#4B5563]" : "border-[#374151] hover:border-[#4B5563]"
       }`}
     >
-      {/* Ligne principale — cliquable pour développer */}
+      {/* Ligne principale - cliquable pour développer */}
       <button
         onClick={() => setExpanded((v) => !v)}
         className="w-full px-5 py-4 flex items-center gap-4 text-left"
@@ -176,7 +176,7 @@ function AuditRow({
             <span className="text-gray-300">
               {guaranteeDuration > 0
                 ? `${Math.round(guaranteeDuration / 86400)} jours`
-                : "—"}
+                : "-"}
             </span>
           </div>
 

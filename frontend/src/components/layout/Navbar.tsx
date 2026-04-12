@@ -1,6 +1,11 @@
 import { NavLink } from "react-router-dom";
+import { useConnection } from "wagmi";
+import { useIsRegistered } from "../../hooks/useReputationBadge";
 
 export default function Navbar() {
+  const { address } = useConnection();
+  const { isRegistered } = useIsRegistered(address);
+
   return (
     <nav className="sticky top-0 z-50 bg-[#0A0E1A]/90 backdrop-blur-sm border-b border-[#374151]">
       <div className="max-w-6xl mx-auto w-full px-6 sm:px-8 lg:px-12">
@@ -32,7 +37,7 @@ export default function Navbar() {
                 Auditeurs
               </NavLink>
               <NavLink
-                to="/explorer"
+                to="/audits"
                 className={({ isActive }) =>
                   `px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
                     isActive
@@ -41,7 +46,7 @@ export default function Navbar() {
                   }`
                 }
               >
-                Explorer
+                Audits
               </NavLink>
               <NavLink
                 to="/depot"
@@ -77,7 +82,7 @@ export default function Navbar() {
                   }`
                 }
               >
-                S'inscrire
+                {isRegistered ? "Mon profil" : "S'inscrire"}
               </NavLink>
             </div>
           </div>

@@ -226,8 +226,27 @@ const validateHash = await registry.write.validateAudit(
 );
 await publicClient.waitForTransactionReceipt({ hash: validateHash });
 
+// Étape 4 : Réclamation du paiement immédiat (70%)
+// Clé privée auditor1 requise : claimPayment() vérifie msg.sender == audit.auditor
+const claimPaymentHash = await registry.write.claimPayment(
+  [1n],
+  { account: auditor1 }
+);
+await publicClient.waitForTransactionReceipt({ hash: claimPaymentHash });
+
+// Étape 5 : Réclamation de la retenue de garantie (30%) : possible car GUARANTEE_DURATION = 1s
+// Hardhat incrémente le timestamp de 1s par bloc : le bloc de cette tx aura timestamp >= guaranteeEnd
+const claimGuaranteeHash = await registry.write.claimGuarantee(
+  [1n],
+  { account: auditor1 }
+);
+await publicClient.waitForTransactionReceipt({ hash: claimGuaranteeHash });
+
 const auditorData = await reputationBadge.read.getAuditorData([auditor1.address]);
-console.log(`  ✅ Audit déposé et validé : score auditeur 1 : ${auditorData.reputationScore} pts`);
+const auditorBalance = await mockUsdc.read.balanceOf([auditor1.address]);
+console.log(`  ✅ Audit déposé, validé, paiement + garantie réclamés`);
+console.log(`     Score auditeur 1 : ${auditorData.reputationScore} pts`);
+console.log(`     Solde auditeur 1 : ${auditorBalance / 1_000_000n} USDC`);
 
 
 

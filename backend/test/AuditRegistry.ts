@@ -25,7 +25,7 @@ const PREUVES_CID = "QmPreuves456ipfsCIDdelexploit"; //CID de l'exploit
 const EMPTY_CID = ""; //CID vide
 const SVG_IMAGE = "<svg xmlns='http://www.w3.org/2000/svg'><text>TEST</text></svg>";
 
-/** @notice pourc caster en unint40. */
+/** @notice Masque pour caster en uint40. */
 const UINT40_MASK = (1n << 40n) - 1n;
 
 
@@ -61,22 +61,6 @@ async function impersonateDao(mockDaoAddress: Address) {
 }
 
 
-// Fonction pour déployer le contrat 
-/* async function setUpSmartContract() {
-    const publicClient = await viem.getPublicClient();
-    const [owner, ...accounts] = await viem.getWalletClients();
-
-    const registery = await viem.deployContract("AuditRegistry", [], {
-        value: 10_000_000_000_000_000n, // 0.01 ETH pour financer le contrat
-        client: { wallet: owner },
-    });
-
-    const signersRegistered = accounts.slice(0, -1);
-    const signerNotRegistered = accounts[accounts.length - 1];
-
-    return { registery, signersRegistered, signerNotRegistered, owner, publicClient };
-}
- */
 
 
 

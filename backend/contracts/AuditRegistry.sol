@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol"; //Pas tres utile car les contracts appelés sont le contrat USDC ou les contrats que j'ai développés
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol"; //Pour les USDC
 import "./ReputationBadge.sol";
 import "./AuditEscrow.sol";

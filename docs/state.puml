@@ -1,5 +1,5 @@
 @startuml state
-title État d'un audit — AuditRegistry
+title État d'un audit - AuditRegistry
 
 [*] --> PENDING : depositAudit()\n[Demandeur]
 
