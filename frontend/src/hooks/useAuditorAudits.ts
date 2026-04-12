@@ -15,7 +15,7 @@ export interface AuditEntry {
   auditor: Address;
   requester: Address;
   auditedContractAddress: Address;
-  reportCID: `0x${string}`;
+  reportCID: string;
   amount: bigint;
   guaranteeEnd: number;
   depositedAt: number;
@@ -46,7 +46,7 @@ export function useAuditorAudits(auditorAddress: Address | undefined) {
         auditor: data.auditor as Address,
         requester: data.requester as Address,
         auditedContractAddress: data.auditedContractAddress as Address,
-        reportCID: data.reportCID as `0x${string}`,
+        reportCID: data.reportCID as string,
         amount: data.amount,
         guaranteeEnd: Number(data.guaranteeEnd),
         depositedAt: Number(data.depositedAt),

@@ -156,6 +156,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     error AuditRegistry__ExploitNotValidated();
     error AuditRegistry__AuditNotClosed();
     error AuditRegistry__ContractAddressAlreadySet();
+    error AuditRegistry__CannotAuditYourself();
 
     // =========================================================================
     // Events
@@ -335,6 +336,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
         uint256 amount
     ) external nonReentrant onlyRegisteredAuditor(auditor) {
         // ============ CHECKS ============
+        if (msg.sender == auditor) revert AuditRegistry__CannotAuditYourself();
         if (amount == 0) revert AuditRegistry__AmountZero();
         if (bytes(reportCID).length == 0) revert AuditRegistry__EmptyCID();
         if (hasPendingAudit[msg.sender][auditor])

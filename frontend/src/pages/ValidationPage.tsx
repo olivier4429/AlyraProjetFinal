@@ -13,6 +13,7 @@ function shortenAddress(addr: string) {
 }
 
 function shortenCid(cid: string) {
+  if (cid.length <= 20) return cid;
   return `${cid.slice(0, 10)}…${cid.slice(-6)}`;
 }
 
@@ -43,7 +44,7 @@ interface AuditCardProps {
   auditId: bigint;
   requester: Address;
   auditedContractAddress: Address;
-  reportCID: `0x${string}`;
+  reportCID: string;
   amount: bigint;
   depositedAt: number;
   status: number;

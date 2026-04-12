@@ -509,6 +509,16 @@ describe("AuditRegistry", () => {
             );
         });
 
+        it("revert CannotAuditYourself si requester == auditeur", async () => {
+            await assert.rejects(
+                registry.write.depositAudit(
+                    [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                    { account: auditor1.account }
+                ),
+                /AuditRegistry__CannotAuditYourself/
+            );
+        });
+
         it("revert AuditorNotRegistered si auditeur non inscrit", async () => {
             await assert.rejects(
                 registry.write.depositAudit(
