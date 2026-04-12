@@ -17,7 +17,7 @@ const { viem } = await network.connect();
 const AUDIT_AMOUNT = parseUnits("100", 6);  // 100 USDC
 const FEE_AMOUNT = parseUnits("5", 6);    // 5%  = 5 USDC
 const ESCROW_AMOUNT = parseUnits("95", 6);   // 95% = 95 USDC
-const GUARANTEE_DURATION = 90n * 24n * 60n * 60n; // 90 jours en secondes
+const GUARANTEE_DURATION = 90 * 24 * 60 * 60; // 90 jours en secondes (uint32)
 const VALIDATION_TIMEOUT = 10n * 24n * 60n * 60n; // 10 jours en secondes
 
 const VALID_CID = "QmTest123ipfsCIDdurapportdauditvalide"; //CID du rapport d'audit valide
@@ -400,7 +400,7 @@ describe("AuditRegistry", () => {
 
         it("dépôt réussi : statut PENDING", async () => {
             await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
             const audit = await registry.read.getAudit([1n]);
@@ -410,7 +410,7 @@ describe("AuditRegistry", () => {
 
         it("auditor et requester correctement stockés", async () => {
             await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
             const audit = await registry.read.getAudit([1n]);
@@ -420,7 +420,7 @@ describe("AuditRegistry", () => {
 
         it("auditCount incrémenté à 1", async () => {
             await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
             assert.equal(await registry.read.auditCount(), 1n);
@@ -428,7 +428,7 @@ describe("AuditRegistry", () => {
 
         it("montant escrow = 95% stocké dans la struct", async () => {
             await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
             const audit = await registry.read.getAudit([1n]);
@@ -438,7 +438,7 @@ describe("AuditRegistry", () => {
         it("5% envoyés à la Treasury", async () => {
             const before = await mockUsdc.read.balanceOf([mockTreasury.address]);
             await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
             const after = await mockUsdc.read.balanceOf([mockTreasury.address]);
@@ -448,7 +448,7 @@ describe("AuditRegistry", () => {
         it("95% envoyés à l'Escrow", async () => {
             const before = await mockUsdc.read.balanceOf([mockEscrow.address]);
             await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
             const after = await mockUsdc.read.balanceOf([mockEscrow.address]);
@@ -458,7 +458,7 @@ describe("AuditRegistry", () => {
         it("balance USDC du requester diminuée du montant total", async () => {
             const before = await mockUsdc.read.balanceOf([requester.account.address]);
             await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
             const after = await mockUsdc.read.balanceOf([requester.account.address]);
@@ -467,7 +467,7 @@ describe("AuditRegistry", () => {
 
         it("hasPendingAudit mis à true", async () => {
             await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
             const pending = await registry.read.hasPendingAudit([
@@ -480,7 +480,7 @@ describe("AuditRegistry", () => {
         it("depositedAt correctement initialisé", async () => {
             const publicClient = await viem.getPublicClient();
             const hash = await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
             const receipt = await publicClient.waitForTransactionReceipt({ hash });
@@ -492,7 +492,7 @@ describe("AuditRegistry", () => {
         it("revert AmountZero si amount == 0", async () => {
             await assert.rejects(
                 registry.write.depositAudit(
-                    [auditor1.account.address, auditedContract.account.address, VALID_CID, 0n],
+                    [auditor1.account.address, auditedContract.account.address, VALID_CID, 0n, GUARANTEE_DURATION],
                     { account: requester.account }
                 ),
                 /AuditRegistry__AmountZero/
@@ -502,7 +502,7 @@ describe("AuditRegistry", () => {
         it("revert EmptyCID si reportCID vide", async () => {
             await assert.rejects(
                 registry.write.depositAudit(
-                    [auditor1.account.address, auditedContract.account.address, EMPTY_CID, AUDIT_AMOUNT],
+                    [auditor1.account.address, auditedContract.account.address, EMPTY_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                     { account: requester.account }
                 ),
                 /AuditRegistry__EmptyCID/
@@ -512,7 +512,7 @@ describe("AuditRegistry", () => {
         it("revert CannotAuditYourself si requester == auditeur", async () => {
             await assert.rejects(
                 registry.write.depositAudit(
-                    [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                    [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                     { account: auditor1.account }
                 ),
                 /AuditRegistry__CannotAuditYourself/
@@ -522,7 +522,7 @@ describe("AuditRegistry", () => {
         it("revert AuditorNotRegistered si auditeur non inscrit", async () => {
             await assert.rejects(
                 registry.write.depositAudit(
-                    [stranger.account.address, auditor1.account.address, VALID_CID, AUDIT_AMOUNT],
+                    [stranger.account.address, auditor1.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                     { account: requester.account }
                 ),
                 /AuditRegistry__AuditorNotRegistered/
@@ -531,12 +531,12 @@ describe("AuditRegistry", () => {
 
         it("revert AuditAlreadyPending si double dépôt même paire", async () => {
             await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
             await assert.rejects(
                 registry.write.depositAudit(
-                    [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                    [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                     { account: requester.account }
                 ),
                 /AuditRegistry__AuditAlreadyPending/
@@ -549,12 +549,12 @@ describe("AuditRegistry", () => {
                 { account: auditor2.account }
             );
             await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
             await assert.doesNotReject(
                 registry.write.depositAudit(
-                    [auditor2.account.address, auditor2.account.address, VALID_CID, AUDIT_AMOUNT],
+                    [auditor2.account.address, auditor2.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                     { account: requester.account }
                 )
             );
@@ -564,12 +564,12 @@ describe("AuditRegistry", () => {
         it("event AuditDeposited émis correctement", async () => {
             await viem.assertions.emitWithArgs(
                 registry.write.depositAudit(
-                    [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                    [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                     { account: requester.account }
                 ),
                 registry,
                 "AuditDeposited",
-                [1n, getAddress(auditor1.account.address), getAddress(requester.account.address), getAddress(auditedContract.account.address), VALID_CID, ESCROW_AMOUNT]
+                [1n, getAddress(auditor1.account.address), getAddress(requester.account.address), getAddress(auditedContract.account.address), ESCROW_AMOUNT]
             );
         });
     });
@@ -585,14 +585,13 @@ describe("AuditRegistry", () => {
                 { account: auditor1.account }
             );
             await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
         });
 
         it("statut VALIDATED après validation", async () => {
-            await registry.write.validateAudit(
-                [1n, GUARANTEE_DURATION],
+            await registry.write.validateAudit([1n],
                 { account: auditor1.account }
             );
             const audit = await registry.read.getAudit([1n]);
@@ -601,19 +600,17 @@ describe("AuditRegistry", () => {
 
         it("guaranteeEnd correctement calculé", async () => {
             const publicClient = await viem.getPublicClient();
-            const hash = await registry.write.validateAudit(
-                [1n, GUARANTEE_DURATION],
+            const hash = await registry.write.validateAudit([1n],
                 { account: auditor1.account }
             );
             const receipt = await publicClient.waitForTransactionReceipt({ hash });
             const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
             const audit = await registry.read.getAudit([1n]);
-            assert.strictEqual(audit.guaranteeEnd, Number((block.timestamp + GUARANTEE_DURATION)));
+            assert.strictEqual(audit.guaranteeEnd, Number(block.timestamp + BigInt(GUARANTEE_DURATION)));
         });
 
         it("hasPendingAudit remis à false", async () => {
-            await registry.write.validateAudit(
-                [1n, GUARANTEE_DURATION],
+            await registry.write.validateAudit([1n],
                 { account: auditor1.account }
             );
             const pending = await registry.read.hasPendingAudit([
@@ -624,8 +621,7 @@ describe("AuditRegistry", () => {
         });
 
         it("lockFunds : séquestre enregistré avec les bons montants (70/30)", async () => {
-            await registry.write.validateAudit(
-                [1n, GUARANTEE_DURATION],
+            await registry.write.validateAudit([1n],
                 { account: auditor1.account }
             );
             const esc = await mockEscrow.read.escrows([1n]);
@@ -639,8 +635,7 @@ describe("AuditRegistry", () => {
         });
 
         it("incAudits appelé : totalAudits incrémenté", async () => {
-            await registry.write.validateAudit(
-                [1n, GUARANTEE_DURATION],
+            await registry.write.validateAudit([1n],
                 { account: auditor1.account }
             );
             const data = await badge.read.getAuditorData([auditor1.account.address]);
@@ -649,8 +644,7 @@ describe("AuditRegistry", () => {
 
         it("incAudits appelé : reputationScore augmenté", async () => {
             const before = (await badge.read.getAuditorData([auditor1.account.address])).reputationScore;
-            await registry.write.validateAudit(
-                [1n, GUARANTEE_DURATION],
+            await registry.write.validateAudit([1n],
                 { account: auditor1.account }
             );
             const after = (await badge.read.getAuditorData([auditor1.account.address])).reputationScore;
@@ -659,8 +653,7 @@ describe("AuditRegistry", () => {
 
         it("revert NotTheAuditor si mauvais appelant", async () => {
             await assert.rejects(
-                registry.write.validateAudit(
-                    [1n, GUARANTEE_DURATION],
+                registry.write.validateAudit([1n],
                     { account: stranger.account }
                 ),
                 /AuditRegistry__NotTheAuditor/
@@ -668,13 +661,11 @@ describe("AuditRegistry", () => {
         });
 
         it("revert InvalidStatus si audit déjà validé", async () => {
-            await registry.write.validateAudit(
-                [1n, GUARANTEE_DURATION],
+            await registry.write.validateAudit([1n],
                 { account: auditor1.account }
             );
             await assert.rejects(
-                registry.write.validateAudit(
-                    [1n, GUARANTEE_DURATION],
+                registry.write.validateAudit([1n],
                     { account: auditor1.account }
                 ),
                 /AuditRegistry__InvalidStatus/
@@ -687,10 +678,10 @@ describe("AuditRegistry", () => {
             // donc le bloc de la tx aura timestamp = latestTimestamp + 1.
             const publicClient = await viem.getPublicClient();
             const latestBlock = await publicClient.getBlock();
-            const expectedGuaranteeEnd = latestBlock.timestamp + 1n + GUARANTEE_DURATION;
+            const expectedGuaranteeEnd = latestBlock.timestamp + 1n + BigInt(GUARANTEE_DURATION);
 
             await viem.assertions.emitWithArgs(
-                registry.write.validateAudit([1n, GUARANTEE_DURATION], { account: auditor1.account }),
+                registry.write.validateAudit([1n], { account: auditor1.account }),
                 registry,
                 "AuditValidated",
                 [1n, getAddress(auditor1.account.address), expectedGuaranteeEnd, ESCROW_AMOUNT * 70n / 100n]
@@ -709,7 +700,7 @@ describe("AuditRegistry", () => {
                 { account: auditor1.account }
             );
             await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
         });
@@ -785,8 +776,7 @@ describe("AuditRegistry", () => {
         });
 
         it("revert AuditNotPending si audit déjà validé", async () => {
-            await registry.write.validateAudit(
-                [1n, GUARANTEE_DURATION],
+            await registry.write.validateAudit([1n],
                 { account: auditor1.account }
             );
             await mineTime(VALIDATION_TIMEOUT + 1n);
@@ -821,11 +811,10 @@ describe("AuditRegistry", () => {
                 { account: auditor1.account }
             );
             await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
-            await registry.write.validateAudit(
-                [1n, GUARANTEE_DURATION],
+            await registry.write.validateAudit([1n],
                 { account: auditor1.account }
             );
         });
@@ -850,7 +839,7 @@ describe("AuditRegistry", () => {
                 { account: auditor2.account }
             );
             await registry.write.depositAudit(
-                [auditor2.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor2.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
             // auditId 2 est PENDING
@@ -880,17 +869,16 @@ describe("AuditRegistry", () => {
                 { account: auditor1.account }
             );
             await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
-            await registry.write.validateAudit(
-                [1n, GUARANTEE_DURATION],
+            await registry.write.validateAudit([1n],
                 { account: auditor1.account }
             );
         });
 
         it("transfère 30% à l'auditeur après la période de garantie", async () => {
-            await mineTime(GUARANTEE_DURATION + 1n);
+            await mineTime(BigInt(GUARANTEE_DURATION) + 1n);
             const before = await mockUsdc.read.balanceOf([auditor1.account.address]);
             await registry.write.claimGuarantee([1n], { account: auditor1.account });
             const after = await mockUsdc.read.balanceOf([auditor1.account.address]);
@@ -905,7 +893,7 @@ describe("AuditRegistry", () => {
         });
 
         it("revert NotTheAuditor si mauvais appelant", async () => {
-            await mineTime(GUARANTEE_DURATION + 1n);
+            await mineTime(BigInt(GUARANTEE_DURATION) + 1n);
             await assert.rejects(
                 registry.write.claimGuarantee([1n], { account: stranger.account }),
                 /AuditRegistry__NotTheAuditor/
@@ -918,10 +906,10 @@ describe("AuditRegistry", () => {
                 { account: auditor2.account }
             );
             await registry.write.depositAudit(
-                [auditor2.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor2.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
-            await mineTime(GUARANTEE_DURATION + 1n);
+            await mineTime(BigInt(GUARANTEE_DURATION) + 1n);
             // auditId 2 est PENDING
             await assert.rejects(
                 registry.write.claimGuarantee([2n], { account: auditor2.account }),
@@ -930,7 +918,7 @@ describe("AuditRegistry", () => {
         });
 
         it("revert AlreadyClaimed si réclamé deux fois", async () => {
-            await mineTime(GUARANTEE_DURATION + 1n);
+            await mineTime(BigInt(GUARANTEE_DURATION) + 1n);
             await registry.write.claimGuarantee([1n], { account: auditor1.account });
             await assert.rejects(
                 registry.write.claimGuarantee([1n], { account: auditor1.account }),
@@ -980,11 +968,10 @@ describe("AuditRegistry", () => {
                 { account: auditor1.account }
             );
             await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
-            await registry.write.validateAudit(
-                [1n, GUARANTEE_DURATION],
+            await registry.write.validateAudit([1n],
                 { account: auditor1.account }
             );
         });
@@ -1029,7 +1016,7 @@ describe("AuditRegistry", () => {
         });
 
         it("revert GuaranteeExpired si garantie expirée", async () => {
-            await mineTime(GUARANTEE_DURATION + 1n);
+            await mineTime(BigInt(GUARANTEE_DURATION) + 1n);
             await assert.rejects(
                 registry.write.reportExploit(
                     [1n, PREUVES_CID],
@@ -1074,11 +1061,10 @@ describe("AuditRegistry", () => {
                 { account: auditor1.account }
             );
             await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
-            await registry.write.validateAudit(
-                [1n, GUARANTEE_DURATION],
+            await registry.write.validateAudit([1n],
                 { account: auditor1.account }
             );
             await registry.write.reportExploit(
@@ -1167,11 +1153,10 @@ describe("AuditRegistry", () => {
                 { account: auditor1.account }
             );
             await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
-            await registry.write.validateAudit(
-                [1n, GUARANTEE_DURATION],
+            await registry.write.validateAudit([1n],
                 { account: auditor1.account }
             );
             await registry.write.reportExploit(
@@ -1258,7 +1243,7 @@ describe("AuditRegistry", () => {
             );
             // Dépôt avec adresse(0) : contrat pas encore déployé
             await registry.write.depositAudit(
-                [auditor1.account.address, zeroAddress, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, zeroAddress, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
         });
@@ -1343,11 +1328,10 @@ describe("AuditRegistry", () => {
 
         it("flux nominal : inscription -> dépôt -> validation -> score mis à jour", async () => {
             await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
-            await registry.write.validateAudit(
-                [1n, GUARANTEE_DURATION],
+            await registry.write.validateAudit([1n],
                 { account: auditor1.account }
             );
 
@@ -1362,7 +1346,7 @@ describe("AuditRegistry", () => {
 
         it("flux timeout : dépôt -> 10 jours -> remboursement -> CLOSED", async () => {
             await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
 
@@ -1381,11 +1365,10 @@ describe("AuditRegistry", () => {
 
         it("flux exploit validé : score dégradé et statut CLOSED", async () => {
             await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
-            await registry.write.validateAudit(
-                [1n, GUARANTEE_DURATION],
+            await registry.write.validateAudit([1n],
                 { account: auditor1.account }
             );
             await registry.write.reportExploit(
@@ -1406,11 +1389,10 @@ describe("AuditRegistry", () => {
 
         it("flux exploit rejeté : score inchangé et statut CLOSED", async () => {
             await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
-            await registry.write.validateAudit(
-                [1n, GUARANTEE_DURATION],
+            await registry.write.validateAudit([1n],
                 { account: auditor1.account }
             );
 
@@ -1436,16 +1418,16 @@ describe("AuditRegistry", () => {
             const requesterBefore = await mockUsdc.read.balanceOf([requester.account.address]);
 
             await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
-            await registry.write.validateAudit([1n, GUARANTEE_DURATION], { account: auditor1.account });
+            await registry.write.validateAudit([1n], { account: auditor1.account });
 
             // Paiement immédiat (70%)
             await registry.write.claimPayment([1n], { account: auditor1.account });
 
             // Fin de garantie puis récupération des 30%
-            await mineTime(GUARANTEE_DURATION + 1n);
+            await mineTime(BigInt(GUARANTEE_DURATION) + 1n);
             await registry.write.claimGuarantee([1n], { account: auditor1.account });
 
             const treasuryAfter  = await mockUsdc.read.balanceOf([mockTreasury.address]);
@@ -1461,10 +1443,10 @@ describe("AuditRegistry", () => {
 
         it("claimPayment possible avant fin de garantie, claimGuarantee bloqué jusqu'à guaranteeEnd", async () => {
             await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
-            await registry.write.validateAudit([1n, GUARANTEE_DURATION], { account: auditor1.account });
+            await registry.write.validateAudit([1n], { account: auditor1.account });
 
             // Paiement immédiat récupérable immédiatement
             const before = await mockUsdc.read.balanceOf([auditor1.account.address]);
@@ -1486,15 +1468,15 @@ describe("AuditRegistry", () => {
             );
 
             await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
             await registry.write.depositAudit(
-                [auditor2.account.address, auditor2.account.address, VALID_CID, AUDIT_AMOUNT],
+                [auditor2.account.address, auditor2.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
                 { account: requester.account }
             );
-            await registry.write.validateAudit([1n, GUARANTEE_DURATION], { account: auditor1.account });
-            await registry.write.validateAudit([2n, GUARANTEE_DURATION], { account: auditor2.account });
+            await registry.write.validateAudit([1n], { account: auditor1.account });
+            await registry.write.validateAudit([2n], { account: auditor2.account });
 
             const data1 = await badge.read.getAuditorData([auditor1.account.address]);
             const data2 = await badge.read.getAuditorData([auditor2.account.address]);

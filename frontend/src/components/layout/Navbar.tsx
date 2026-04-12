@@ -32,6 +32,18 @@ export default function Navbar() {
                 Auditeurs
               </NavLink>
               <NavLink
+                to="/explorer"
+                className={({ isActive }) =>
+                  `px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    isActive
+                      ? "bg-blue-500/10 text-blue-400"
+                      : "text-gray-400 hover:text-white hover:bg-[#1F2937]"
+                  }`
+                }
+              >
+                Explorer
+              </NavLink>
+              <NavLink
                 to="/depot"
                 className={({ isActive }) =>
                   `px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${

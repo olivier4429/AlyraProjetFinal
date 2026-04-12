@@ -2,6 +2,41 @@ import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { AUDIT_REGISTRY_ABI } from "../abi/AuditRegistry";
 import { AUDIT_REGISTRY_ADDRESS } from "../constants/contracts";
 
+export function useClaimGuarantee() {
+  const {
+    writeContract,
+    data: txHash,
+    isPending: isSignaturePending,
+    error: writeError,
+    reset,
+  } = useWriteContract();
+
+  const {
+    isLoading: isConfirming,
+    isSuccess,
+    error: receiptError,
+  } = useWaitForTransactionReceipt({ hash: txHash });
+
+  const claim = (auditId: bigint) => {
+    writeContract({
+      address: AUDIT_REGISTRY_ADDRESS,
+      abi: AUDIT_REGISTRY_ABI,
+      functionName: "claimGuarantee",
+      args: [auditId],
+    });
+  };
+
+  return {
+    claim,
+    txHash,
+    isSignaturePending,
+    isConfirming,
+    isSuccess,
+    error: writeError ?? receiptError,
+    reset,
+  };
+}
+
 export function useValidateAudit() {
   const {
     writeContract,
@@ -17,12 +52,12 @@ export function useValidateAudit() {
     error: receiptError,
   } = useWaitForTransactionReceipt({ hash: txHash });
 
-  const validate = (auditId: bigint, guaranteeDurationSeconds: bigint) => {
+  const validate = (auditId: bigint) => {
     writeContract({
       address: AUDIT_REGISTRY_ADDRESS,
       abi: AUDIT_REGISTRY_ABI,
       functionName: "validateAudit",
-      args: [auditId, guaranteeDurationSeconds],
+      args: [auditId],
     });
   };
 

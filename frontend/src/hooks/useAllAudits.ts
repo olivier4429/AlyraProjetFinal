@@ -3,32 +3,13 @@ import { usePublicClient, useWatchContractEvent } from "wagmi";
 import type { Address } from "viem";
 import { AUDIT_REGISTRY_ABI } from "../abi/AuditRegistry";
 import { AUDIT_REGISTRY_ADDRESS, DEPLOY_BLOCK } from "../constants/contracts";
-
-export const AuditStatus = {
-  PENDING: 0,
-  VALIDATED: 1,
-  CLOSED: 2,
-} as const;
-
-export interface AuditEntry {
-  auditId: bigint;
-  auditor: Address;
-  requester: Address;
-  auditedContractAddress: Address;
-  reportCID: string;
-  amount: bigint;
-  guaranteeEnd: number;
-  guaranteeDuration: number;
-  depositedAt: number;
-  status: number;
-  exploitValidated: boolean;
-}
+import type { AuditEntry } from "./useAuditorAudits";
 
 /**
- * Retourne tous les audits assignés à un auditeur donné.
- * Stratégie : getContractEvents(AuditDeposited, { auditor }) → getAudit(auditId) pour le statut actuel.
+ * Charge tous les audits enregistrés on-chain (sans filtre d'auditeur).
+ * Stratégie : getContractEvents(AuditDeposited) → getAudit(id) pour l'état courant.
  */
-export function useAuditorAudits(auditorAddress: Address | undefined) {
+export function useAllAudits() {
   const publicClient = usePublicClient();
   const [audits, setAudits] = useState<AuditEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -61,7 +42,7 @@ export function useAuditorAudits(auditorAddress: Address | undefined) {
   }
 
   useEffect(() => {
-    if (!publicClient || !AUDIT_REGISTRY_ADDRESS || !auditorAddress) return;
+    if (!publicClient || !AUDIT_REGISTRY_ADDRESS) return;
 
     let cancelled = false;
 
@@ -73,12 +54,14 @@ export function useAuditorAudits(auditorAddress: Address | undefined) {
           address: AUDIT_REGISTRY_ADDRESS,
           abi: AUDIT_REGISTRY_ABI,
           eventName: "AuditDeposited",
-          args: { auditor: auditorAddress },
           fromBlock: DEPLOY_BLOCK,
           toBlock: "latest",
         });
 
-        const auditIds = logs.map((l) => l.args.auditId).filter((id): id is bigint => id !== undefined);
+        const auditIds = logs
+          .map((l) => l.args.auditId)
+          .filter((id): id is bigint => id !== undefined);
+
         const results = await Promise.all(auditIds.map(fetchAudit));
         if (cancelled) return;
 
@@ -92,14 +75,13 @@ export function useAuditorAudits(auditorAddress: Address | undefined) {
 
     load();
     return () => { cancelled = true; };
-  }, [publicClient, auditorAddress]);
+  }, [publicClient]);
 
-  // Temps réel : nouvel audit assigné
+  // Temps réel : nouvel audit déposé
   useWatchContractEvent({
     address: AUDIT_REGISTRY_ADDRESS,
     abi: AUDIT_REGISTRY_ABI,
     eventName: "AuditDeposited",
-    args: { auditor: auditorAddress },
     onLogs: async (logs) => {
       for (const log of logs) {
         const { auditId } = log.args;
@@ -111,11 +93,10 @@ export function useAuditorAudits(auditorAddress: Address | undefined) {
     },
   });
 
-  // Rafraîchit le statut d'un audit après validation
   function refreshAudit(auditId: bigint) {
     fetchAudit(auditId).then((entry) => {
       if (!entry) return;
-      setAudits((prev) => prev.map((a) => a.auditId === auditId ? entry : a));
+      setAudits((prev) => prev.map((a) => (a.auditId === auditId ? entry : a)));
     });
   }
 

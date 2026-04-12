@@ -1,11 +1,9 @@
-import { useNavigate } from "react-router-dom";
 import StatBox from "../components/ui/StatBox";
 import AuditorCard from "../components/auditors/AuditorCard";
 import { useAuditors } from "../hooks/useAuditors";
 import { useProtocolStats } from "../hooks/useProtocolStats";
 
 export default function HomePage() {
-  const navigate = useNavigate();
   const { auditors, isLoading, error } = useAuditors();
   const stats = useProtocolStats(auditors);
 
@@ -18,48 +16,24 @@ export default function HomePage() {
       {/* Hero */}
       <section className="text-center py-12 relative">
         <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent rounded-2xl pointer-events-none" />
-        <div className="relative">
+        <div className="relative flex flex-col items-center">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-semibold mb-6">
             <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
             Réseau Sepolia Testnet
           </div>
 
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold font-display leading-tight mb-4">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold font-display leading-tight mb-4 text-center">
             Trouvez un auditeur
             <br />
             de{" "}
             <span className="text-blue-400">confiance</span>
           </h1>
 
-          <p className="text-gray-400 text-lg max-w-2xl mx-auto mb-8">
+          <p className="text-gray-400 text-lg mb-8 text-center max-w-2xl">
             Des auditeurs de smart contracts vérifiés on-chain. Leur réputation
             est immuable, transparente et calculée à partir de leurs audits réels.
           </p>
 
-          <div className="flex items-center justify-center gap-4 flex-wrap">
-            <button
-              onClick={() => navigate("/depot")}
-              className="px-8 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg transition-colors"
-            >
-              Déposer un audit
-            </button>
-            <button
-              onClick={() => navigate("/inscription")}
-              className="px-8 py-3 border border-blue-500/40 text-blue-300 hover:text-white hover:border-blue-500 font-bold rounded-lg transition-colors"
-            >
-              Devenir auditeur
-            </button>
-            <button
-              onClick={() =>
-                document
-                  .getElementById("auditors-list")
-                  ?.scrollIntoView({ behavior: "smooth" })
-              }
-              className="px-8 py-3 border border-[#374151] text-gray-300 hover:text-white hover:border-[#4B5563] font-bold rounded-lg transition-colors"
-            >
-              Explorer →
-            </button>
-          </div>
         </div>
       </section>
 

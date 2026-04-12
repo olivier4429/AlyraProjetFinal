@@ -82,11 +82,22 @@ export default function DepositPage() {
   const { auditors, isLoading: auditorsLoading } = useAuditors();
   const { startFlow, reset, step, approveTxHash, depositTxHash, error } = useDepositAudit();
 
+  // ── Presets durée de garantie ──────────────────────────────────────────────
+  const GUARANTEE_PRESETS = [
+    { label: "30 jours", value: 30 * 24 * 3600 },
+    { label: "90 jours", value: 90 * 24 * 3600 },
+    { label: "180 jours", value: 180 * 24 * 3600 },
+    { label: "1 an", value: 365 * 24 * 3600 },
+  ] as const;
+
   // ── Form state ─────────────────────────────────────────────────────────────
   const [auditor, setAuditor] = useState<Address | "">("");
   const [contractAddress, setContractAddress] = useState("");
   const [cid, setCid] = useState("");
   const [amountUsdc, setAmountUsdc] = useState("");
+  const [guaranteeDuration, setGuaranteeDuration] = useState<number>(90 * 24 * 3600);
+  const [customSeconds, setCustomSeconds] = useState("");
+  const [useCustomDuration, setUseCustomDuration] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // ── USDC balance ───────────────────────────────────────────────────────────
@@ -106,10 +117,13 @@ export default function DepositPage() {
   // Adresse nulle si le contrat n'est pas encore déployé
   const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
 
+  const effectiveDuration = useCustomDuration
+    ? (parseInt(customSeconds) || 0)
+    : guaranteeDuration;
+
   function validate(): boolean {
     const errors: Record<string, string> = {};
     if (!auditor) errors.auditor = "Sélectionnez un auditeur.";
-    // contractAddress est optionnel — si renseigné, doit être valide
     if (contractAddress.trim() && !isAddress(contractAddress)) {
       errors.contractAddress = "Adresse Ethereum invalide (0x…).";
     }
@@ -120,6 +134,7 @@ export default function DepositPage() {
     } else if (usdcBalance !== undefined && amount > Number(formatUnits(usdcBalance as bigint, 6))) {
       errors.amountUsdc = `Solde insuffisant (${balanceFormatted} USDC disponibles).`;
     }
+    if (effectiveDuration <= 0) errors.guarantee = "Durée de garantie invalide.";
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   }
@@ -133,6 +148,7 @@ export default function DepositPage() {
         : ZERO_ADDRESS),
       reportCid: cid.trim(),
       amountUsdc,
+      guaranteeDuration: effectiveDuration,
     });
   }
 
@@ -187,7 +203,7 @@ export default function DepositPage() {
             </a>
           )}
           <button
-            onClick={() => { reset(); setAuditor(""); setContractAddress(""); setCid(""); setAmountUsdc(""); }}
+            onClick={() => { reset(); setAuditor(""); setContractAddress(""); setCid(""); setAmountUsdc(""); setGuaranteeDuration(90 * 24 * 3600); setUseCustomDuration(false); setCustomSeconds(""); }}
             className="px-6 py-3 border border-[#374151] text-gray-400 hover:text-white hover:border-[#4B5563] font-bold rounded-lg transition-colors"
           >
             Nouveau dépôt
@@ -270,9 +286,62 @@ export default function DepositPage() {
             placeholder="QmXxx... ou ipfs://..."
             className="w-full bg-[#1F2937] border border-[#374151] rounded-lg px-4 py-2.5 text-white placeholder-gray-500 font-mono text-sm focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50"
           />
-          {formErrors.cid
-            ? <span className="text-xs text-rose-400">{formErrors.cid}</span>
-            : <span className="text-xs text-gray-500">Le CID IPFS sera stocké on-chain sous forme de hash keccak256.</span>
+          {formErrors.cid && <span className="text-xs text-rose-400">{formErrors.cid}</span>}
+        </div>
+
+        {/* Durée de garantie */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-semibold text-gray-300">
+            Durée de garantie <span className="text-rose-400">*</span>
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {GUARANTEE_PRESETS.map((p) => (
+              <button
+                key={p.value}
+                type="button"
+                onClick={() => { setUseCustomDuration(false); setGuaranteeDuration(p.value); }}
+                disabled={isInProgress}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-colors disabled:opacity-50 ${
+                  !useCustomDuration && guaranteeDuration === p.value
+                    ? "bg-blue-500 border-blue-500 text-white"
+                    : "bg-[#1F2937] border-[#374151] text-gray-300 hover:border-blue-500"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setUseCustomDuration(true)}
+              disabled={isInProgress}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-colors disabled:opacity-50 ${
+                useCustomDuration
+                  ? "bg-blue-500 border-blue-500 text-white"
+                  : "bg-[#1F2937] border-[#374151] text-gray-300 hover:border-blue-500"
+              }`}
+            >
+              Personnalisé
+            </button>
+          </div>
+          {useCustomDuration && (
+            <div className="relative mt-1">
+              <input
+                type="number"
+                min="1"
+                value={customSeconds}
+                onChange={(e) => setCustomSeconds(e.target.value)}
+                disabled={isInProgress}
+                placeholder="ex : 7776000"
+                className="w-full bg-[#1F2937] border border-[#374151] rounded-lg px-4 py-2.5 pr-20 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50"
+              />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-400">secondes</span>
+            </div>
+          )}
+          {formErrors.guarantee
+            ? <span className="text-xs text-rose-400">{formErrors.guarantee}</span>
+            : <span className="text-xs text-gray-500">
+                Période pendant laquelle le requester peut signaler un exploit après validation.
+              </span>
           }
         </div>
 

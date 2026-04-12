@@ -13,6 +13,8 @@ export interface DepositParams {
   reportCid: string;
   /** Montant en USDC lisible (ex : "100") — converti en 6 décimales */
   amountUsdc: string;
+  /** Durée de garantie en secondes (ex : 90 * 24 * 3600) */
+  guaranteeDuration: number;
 }
 
 export type DepositStep =
@@ -71,6 +73,7 @@ export function useDepositAudit() {
     auditedContractAddress: Address;
     reportCID: string;
     amount: bigint;
+    guaranteeDuration: number;
   } | null>(null);
 
   // ── Déclenchement automatique du dépôt après approval ────────────────────
@@ -82,7 +85,7 @@ export function useDepositAudit() {
         address: AUDIT_REGISTRY_ADDRESS,
         abi: AUDIT_REGISTRY_ABI,
         functionName: "depositAudit",
-        args: [p.auditor, p.auditedContractAddress, p.reportCID, p.amount],
+        args: [p.auditor, p.auditedContractAddress, p.reportCID, p.amount, p.guaranteeDuration],
       });
     }
   }, [isApproveSuccess]);
@@ -98,6 +101,7 @@ export function useDepositAudit() {
       auditedContractAddress: params.auditedContractAddress,
       reportCID,
       amount,
+      guaranteeDuration: params.guaranteeDuration,
     };
 
     writeApprove({

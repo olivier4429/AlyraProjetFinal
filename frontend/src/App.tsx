@@ -4,6 +4,7 @@ import HomePage from "./pages/HomePage";
 import InscriptionPage from "./pages/InscriptionPage";
 import DepositPage from "./pages/DepositPage";
 import ValidationPage from "./pages/ValidationPage";
+import ExplorerPage from "./pages/ExplorerPage";
 
 function App() {
   return (
@@ -11,6 +12,7 @@ function App() {
       <Layout>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/explorer" element={<ExplorerPage />} />
           <Route path="/inscription" element={<InscriptionPage />} />
           <Route path="/depot" element={<DepositPage />} />
           <Route path="/validation" element={<ValidationPage />} />

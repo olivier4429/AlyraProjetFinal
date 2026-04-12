@@ -82,16 +82,17 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
      * @dev Pour le storage packing, on passe les dates de uint256 à uint40 ( année 36812 c'est assez loin)
      */
     struct Audit {
-        //Slot 0 : 240 bits
-        address auditor; //160 bits Adresse de l'auditeur désigné
-        uint40 guaranteeEnd; //40 bits date de fin de la retenue de garantie: jusqu'au 20 novembre 36812
-        uint40 depositedAt; //40 bits timestamp du dépôt de l'audit (ajouté pour gérer le timeout de validation)
+        //Slot 0 : 240 bits (16 bits libres)
+        address auditor;      //160 bits Adresse de l'auditeur désigné
+        uint40 guaranteeEnd;  //40 bits  Date de fin de la retenue de garantie (jusqu'au 20 novembre 36812)
+        uint40 depositedAt;   //40 bits  Timestamp du dépôt de l'audit (pour gérer le timeout de validation)
         //Slot 1 : 256 bits
-        uint256 amount; //256 bits Montant total de l'audit en USDC (on pourrait passer à uint96 pour regrouper avec le slot suivant. A voir plus tard, pour l'instant je laisse comme ça pour ne pas avoir à changer trop de code.)
-        //slot 2 : 169 bits
+        uint256 amount; //256 bits Montant total de l'audit en USDC
+        //Slot 2 : 201 bits (55 bits libres)
         address auditedContractAddress; //160 bits Contrat audité
         AuditStatus status;             //8 bits   Etat de l'audit
         bool exploitValidated;          //1 bit    true si la DAO a validé un exploit sur cet audit
+        uint32 guaranteeDuration;       //32 bits  Durée de garantie en secondes choisie par le demandeur
         //Slot 3 : 160 bits
         address requester; //160 bits Adresse du demandeur de l'audit
         //Slot 4 et + : dynamique
@@ -184,7 +185,6 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
         address indexed auditor,
         address indexed requester,
         address auditedContractAddress,
-        string reportCID,
         uint256 amount
     );
 
@@ -333,12 +333,14 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
         address auditor,
         address auditedContractAddress,
         string calldata reportCID,
-        uint256 amount
+        uint256 amount,
+        uint32 guaranteeDuration
     ) external nonReentrant onlyRegisteredAuditor(auditor) {
         // ============ CHECKS ============
         if (msg.sender == auditor) revert AuditRegistry__CannotAuditYourself();
         if (amount == 0) revert AuditRegistry__AmountZero();
         if (bytes(reportCID).length == 0) revert AuditRegistry__EmptyCID();
+        if (guaranteeDuration == 0) revert AuditRegistry__GuaranteeTooShort();
         if (hasPendingAudit[msg.sender][auditor])
             revert AuditRegistry__AuditAlreadyPending();
 
@@ -356,6 +358,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
             exploitValidated: false,
             amount: escrowAmount,
             guaranteeEnd: 0,
+            guaranteeDuration: guaranteeDuration,
             depositedAt: uint40(block.timestamp)
         });
 
@@ -366,7 +369,6 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
             auditor,
             msg.sender,
             auditedContractAddress,
-            reportCID,
             escrowAmount
         );
 
@@ -397,13 +399,9 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
      *      RG-23 : 70% immédiat → auditeur (via AuditEscrow)
      *      RG-24 : 30% → Aave v3 (via AuditEscrow)
      *      RG-25 : statut → VALIDATED
-     * @param auditId           Identifiant de l'audit
-     * @param guaranteeDuration Durée de garantie en secondes
+     * @param auditId Identifiant de l'audit
      */
-    function validateAudit(
-        uint256 auditId,
-        uint256 guaranteeDuration
-    ) external nonReentrant {
+    function validateAudit(uint256 auditId) external nonReentrant {
         // ============ CHECKS ============
         Audit storage audit = audits[auditId];
 
@@ -414,13 +412,9 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
         if (audit.status != AuditStatus.PENDING)
             revert AuditRegistry__InvalidStatus();
 
-        /* A VALIDER
-       if (guaranteeDuration < 90 days)
-            revert AuditRegistry__GuaranteeTooShort();
-        */
         // ============ EFFECTS ============
         audit.status = AuditStatus.VALIDATED;
-        audit.guaranteeEnd = uint40(block.timestamp + guaranteeDuration);
+        audit.guaranteeEnd = uint40(block.timestamp + audit.guaranteeDuration);
 
         hasPendingAudit[audit.requester][audit.auditor] = false;
 

@@ -2,11 +2,6 @@ import type { Auditor } from "../../types";
 import Badge, { getVariantForSpecialty } from "../ui/Badge";
 import ScoreBar from "../ui/ScoreBar";
 
-interface AuditorCardProps {
-  auditor: Auditor;
-  rank: number;
-}
-
 function shortenAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
@@ -20,6 +15,7 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
+// Couleurs d'avatar déterministes basées sur l'adresse
 function getAvatarColor(address: string): string {
   const colors = [
     "#3B82F6",
@@ -41,7 +37,7 @@ function getRankBadgeStyle(rank: number): string {
   return "text-gray-500 bg-gray-500/10 border-gray-500/20";
 }
 
-export default function AuditorCard({ auditor, rank }: AuditorCardProps) {
+export default function AuditorCard({ auditor, rank }: { auditor: Auditor; rank: number }) {
   const avatarColor = getAvatarColor(auditor.address);
   const initials = getInitials(auditor.pseudo);
 
@@ -65,14 +61,6 @@ export default function AuditorCard({ auditor, rank }: AuditorCardProps) {
 
         {/* Info */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-1">
-            <h3 className="font-bold text-white text-base">{auditor.pseudo}</h3>
-            {auditor.totalExploits === 0 && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
-                0 exploit
-              </span>
-            )}
-          </div>
 
           <p className="font-mono text-xs text-gray-400 mb-3">
             {shortenAddress(auditor.address)}

@@ -20,8 +20,6 @@ import { readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { privateKeyToAccount } from "viem/accounts";
 import {
-  encodePacked,
-  keccak256,
   parseUnits,
   type Account,
   type Hex,
@@ -200,8 +198,8 @@ console.log("\n📋 Génération d'activités pour l'auditeur 1...");
 const auditor1 = auditorAccounts[0];
 const requester1 = requesterAccounts[0];
 const AUDIT_AMOUNT = parseUnits("100", 6); // 100 USDC
-const GUARANTEE_DURATION = 1n; // 1 seconde, on met une garanitie très courte pour accélérer le seed et valider rapidement l'audit. En conditions réelles, ce serait plusieurs jours/mois.s
-const VALID_CID = keccak256(encodePacked(["string"], ["CIDdurapportdauditvalide"]));
+const GUARANTEE_DURATION = 1; // 1 seconde, garantie très courte pour le seed (en conditions réelles : plusieurs jours/mois)
+const VALID_CID = "QmSeedAuditReportCIDexample123";
 
 // Étape 1 : Approbation : le requester autorise AuditRegistry à prélever ses USDC
 // Clé privée requester1 requise : approve() utilise msg.sender comme propriétaire des fonds
@@ -214,7 +212,7 @@ await publicClient.waitForTransactionReceipt({ hash: approveHash });
 // Étape 2 : Dépôt de l'audit
 // Clé privée requester1 requise : depositAudit() utilise msg.sender comme requester
 const depositHash = await registry.write.depositAudit(
-  [auditor1.address, mockUsdc.address, VALID_CID, AUDIT_AMOUNT],
+  [auditor1.address, mockUsdc.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
   { account: requester1 }
 );
 await publicClient.waitForTransactionReceipt({ hash: depositHash });
@@ -223,7 +221,7 @@ await publicClient.waitForTransactionReceipt({ hash: depositHash });
 // Clé privée auditor1 requise : validateAudit() vérifie msg.sender == audit.auditor
 // C'est ici que incAudits() est appelé → le score de réputation est calculé et mis à jour
 const validateHash = await registry.write.validateAudit(
-  [1n, GUARANTEE_DURATION],
+  [1n],
   { account: auditor1 }
 );
 await publicClient.waitForTransactionReceipt({ hash: validateHash });
@@ -251,6 +249,7 @@ const setEnvVar = (content: string, key: string, value: string): string => {
 };
 
 envContent = setEnvVar(envContent, "VITE_AUDIT_REGISTRY_ADDRESS", registry.address);
+envContent = setEnvVar(envContent, "VITE_AUDIT_ESCROW_ADDRESS", escrow.address);
 envContent = setEnvVar(envContent, "VITE_REPUTATION_BADGE_ADDRESS", reputationBadge.address);
 envContent = setEnvVar(envContent, "VITE_USDC_ADDRESS", mockUsdc.address);
 envContent = setEnvVar(envContent, "VITE_DEPLOY_BLOCK", deployBlock.toString());
