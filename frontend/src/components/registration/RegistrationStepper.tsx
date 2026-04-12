@@ -8,7 +8,14 @@ const STEPS: Step[] = [
   { number: 2, label: "Identité" },
   { number: 3, label: "Confirmation" },
 ];
-
+/**
+ * 
+ * @param param0 L'inscription se fait en 3 étapes :
+ * -Connexion
+ * -Identité
+ * -Confirmation
+ * @returns 
+ */
 export default function RegistrationStepper({ currentStep }: { currentStep: number }) {
   return (
     <div className="flex items-center justify-center gap-0 mb-8">
