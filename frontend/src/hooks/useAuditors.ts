@@ -11,8 +11,8 @@ import type { Auditor, Specialty } from "../types";
  * Lit la liste complète des auditeurs depuis la blockchain.
  *
  * Stratégie :
- *  1. getContractEvents historiques au montage → tous les auditeurs inscrits depuis le déploiement
- *  2. useWatchContractEvent en temps réel → mise à jour automatique sans rechargement
+ *  1. getContractEvents historiques au montage => tous les auditeurs inscrits depuis le déploiement
+ *  2. useWatchContractEvent en temps réel => mise à jour automatique sans rechargement
  */
 export function useAuditors() {
   const publicClient = usePublicClient();
@@ -78,7 +78,7 @@ export function useAuditors() {
           }),
         ]);
 
-        // Map adresse → { pseudo, specialties }
+        // Map adresse => { pseudo, specialties }
         const metaMap = new Map<string, { pseudo: string; specialties: string[] }>();
 
         for (const log of registeredLogs) {

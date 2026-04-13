@@ -365,7 +365,7 @@ export default function DepositPage() {
               value={amountUsdc}
               onChange={(e) => { setAmountUsdc(e.target.value); setFormErrors((p) => ({ ...p, amountUsdc: "" })); }}
               disabled={isInProgress}
-              placeholder="100"
+              placeholder="10000"
               className="w-full bg-[#1F2937] border border-[#374151] rounded-lg px-4 py-2.5 pr-16 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50"
             />
             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-400">USDC</span>
@@ -374,7 +374,7 @@ export default function DepositPage() {
             ? <span className="text-xs text-rose-400">{formErrors.amountUsdc}</span>
             : amountUsdc && (
               <span className="text-xs text-gray-500">
-                Frais protocole 5 % = {(parseFloat(amountUsdc || "0") * 0.05).toFixed(2)} USDC →
+                Frais protocole 5 % = {(parseFloat(amountUsdc || "0") * 0.05).toFixed(2)} USDC =>
                 {" "}{(parseFloat(amountUsdc || "0") * 0.95).toFixed(2)} USDC en séquestre
               </span>
             )

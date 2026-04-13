@@ -11,11 +11,12 @@ actor "Owner"     as O
 rectangle "Protocole AuditRegistry" {
 
   package "Gestion de l'auditeur" {
-    usecase "S'inscrire"                         as UC_REGISTER
-    usecase "Mettre à jour ses spécialités"      as UC_SPECIALTIES
-    usecase "Valider un audit"                   as UC_VALIDATE
-    usecase "Réclamer le paiement (70 %)"        as UC_CLAIM_PAYMENT
-    usecase "Réclamer la garantie (30 %)"        as UC_CLAIM_GUARANTEE
+    usecase "S'inscrire"                              as UC_REGISTER
+    usecase "Mettre à jour ses spécialités"           as UC_SPECIALTIES
+    usecase "Définir l'adresse du contrat audité"     as UC_SET_ADDR
+    usecase "Valider un audit"                        as UC_VALIDATE
+    usecase "Réclamer le paiement (70 %)"             as UC_CLAIM_PAYMENT
+    usecase "Réclamer la garantie (30 %)"             as UC_CLAIM_GUARANTEE
   }
 
   package "Gestion du demandeur" {
@@ -36,9 +37,12 @@ rectangle "Protocole AuditRegistry" {
 
 A   --> UC_REGISTER
 A   --> UC_SPECIALTIES
+A   --> UC_SET_ADDR
 A   --> UC_VALIDATE
 A   --> UC_CLAIM_PAYMENT
 A   --> UC_CLAIM_GUARANTEE
+
+UC_SET_ADDR ..> UC_VALIDATE : <<extend>>\ncontrat non déployé au moment du dépôt
 
 D   --> UC_DEPOSIT
 D   --> UC_REFUND

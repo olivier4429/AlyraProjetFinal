@@ -29,7 +29,7 @@ import "./AuditEscrow.sol";
  *               Treasury (5%)            AuditEscrow (95%)
  *                5 USDC                    95 USDC
  *
- *  PHASE 5 : validateAudit()  →  lockFunds()
+ *  PHASE 5a : validateAudit()  =>  lockFunds()
  *  ─────────────────────────────────────────────────────────
  *  AuditRegistry ──────────────────────► AuditEscrow
  *                                          │
@@ -39,21 +39,21 @@ import "./AuditEscrow.sol";
  *                       70% = 66.5 USDC            30% = 28.5 USDC
  *                     (claimable aussitôt)       (bloqué jusqu'à guaranteeEnd)
  *
- *  PHASE 5b : claimPayment()  (pull payment, pas de délai)
- *  ─────────────────────────────────────────────────────────
- *  Auditeur ──► AuditRegistry ──► AuditEscrow.releasePayment()
- *  Auditeur ◄──[66.5 USDC]──────────────────────────────────
- *
- *  PHASE 5c : claimGuarantee()  (après guaranteeEnd)
- *  ─────────────────────────────────────────────────────────
- *  Auditeur ──► AuditRegistry ──► AuditEscrow.releaseGuarantee()
- *  Auditeur ◄──[28.5 USDC]──────────────────────────────────
- *
- *  PHASE 5d : claimRefundAfterTimeout()  (si pas de validation sous 10j)
+ *  PHASE 5b : claimRefundAfterTimeout()  (alternatif – si pas de validation sous 10j)
  *  ─────────────────────────────────────────────────────────
  *  Requester ──► AuditRegistry ──► AuditEscrow.refund()
  *  Requester ◄──[95 USDC]──────────────────────────────────
  *  Note : les 5 USDC Treasury ne sont pas remboursés
+ *
+ *  PHASE 6a : claimPayment()  (pull payment, pas de délai après validation)
+ *  ─────────────────────────────────────────────────────────
+ *  Auditeur ──► AuditRegistry ──► AuditEscrow.releasePayment()
+ *  Auditeur ◄──[66.5 USDC]──────────────────────────────────
+ *
+ *  PHASE 7a : claimGuarantee()  (après guaranteeEnd, ou exploit rejeté)
+ *  ─────────────────────────────────────────────────────────
+ *  Auditeur ──► AuditRegistry ──► AuditEscrow.releaseGuarantee()
+ *  Auditeur ◄──[28.5 USDC]──────────────────────────────────
  *
  *  CAS EXPLOIT : resolveIncident(validated=true)
  *  ─────────────────────────────────────────────────────────
@@ -318,7 +318,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
      *         Il peut ainsi faire des retours à l'auditeur avant validation.
      * @dev RG-10 : auditeur doit être inscrit et actif
      *      RG-11 : montant > 0
-     *      RG-12 : 5% → Treasury immédiat
+     *      RG-12 : 5% => Treasury immédiat
      *      RG-13 : escrow = 95% du dépôt
      *      RG-14 : 1 seul audit PENDING par paire requester/auditeur
      *      RG-15 : CID obligatoire
@@ -396,9 +396,9 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
      * @dev RG-20 : seul l'auditeur désigné peut valider
      *      RG-21 : audit doit être PENDING
      *      RG-22 : garantie minimum 90 jours
-     *      RG-23 : 70% immédiat → auditeur (via AuditEscrow)
-     *      RG-24 : 30% → Aave v3 (via AuditEscrow)
-     *      RG-25 : statut → VALIDATED
+     *      RG-23 : 70% immédiat => auditeur (via AuditEscrow)
+     *      RG-24 : 30% => Aave v3 (via AuditEscrow)
+     *      RG-25 : statut => VALIDATED
      * @param auditId Identifiant de l'audit
      */
     function validateAudit(uint256 auditId) external nonReentrant {
@@ -513,8 +513,8 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     /**
      * @notice Appelé par DAOVoting quand le quorum est atteint
      * @dev Seul DAOVoting peut appeler cette fonction
-     *      Exploit validé → pénalité score auditeur
-     *      Exploit rejeté → aucun effet sur le score
+     *      Exploit validé => pénalité score auditeur
+     *      Exploit rejeté => aucun effet sur le score
      * @param auditId   Identifiant de l'audit
      * @param validated true = exploit validé | false = exploit rejeté
      */

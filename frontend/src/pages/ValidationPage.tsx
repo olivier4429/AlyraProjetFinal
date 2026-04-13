@@ -301,7 +301,7 @@ function AuditCard({
               onClick={() => setExpanded(true)}
               className="w-full px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg transition-colors text-sm"
             >
-              Valider cet audit →
+              Valider cet audit
             </button>
           ) : (
             <div className="flex flex-col gap-3 border-t border-[#374151] pt-4">

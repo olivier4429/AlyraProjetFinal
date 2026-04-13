@@ -1,11 +1,10 @@
 # AuditRegistry
 
-**Smart Contract Audit Reputation System**  
+**Registre on-chain des audits de smart contracts**  
 Alyra – Promotion Gladys West · Avril 2026
 
 ---
 
-## Présentation
 
 AuditRegistry est un protocole décentralisé qui crée un registre on-chain des audits de smart contracts. Il met en relation des demandeurs d'audit et des auditeurs certifiés, sécurise les paiements via un escrow intégrant Aave v3 pour générer du yield, et maintient un score de réputation on-chain pour chaque auditeur via un NFT soul-bound non transférable (EIP-5192).
 
@@ -15,211 +14,120 @@ AuditRegistry est un protocole décentralisé qui crée un registre on-chain des
 
 Il est difficile pour un utilisateur de smart contract d'évaluer le niveau de sécurité d'un protocole : a-t-il été audité ? Par qui ? Avec quelle garantie ? AuditRegistry répond à ce besoin en rendant l'historique des audits public, immuable et vérifiable on-chain.
 
+
 ---
 
 ## Acteurs
 
 | Acteur | Rôle |
 |---|---|
-| **Demandeur** | Dépose le paiement + rapport d'audit (CID IPFS), peut signaler un exploit |
-| **Auditeur** | Inscrit sur la plateforme, valide le rapport, réclame sa garantie |
-| **DAO / Validateurs** | Auditeurs accrédités votant sur les incidents (quorum 3/5) |
-| **Treasury** | Contrat recevant automatiquement les frais du protocole (Owner-only) |
-| **Aave v3** | Protocole externe générant du yield sur les fonds en garantie |
+| **Demandeur** | Dépose le paiement + CID du rapport IPFS, peut signaler un exploit |
+| **Auditeur** | S'inscrit, valide les audits, réclame ses paiements |
+| **DAO** | Vote sur les incidents signalés par les demandeurs |
+| **Treasury** | Reçoit automatiquement les frais de protocole (5 %) |
 
 ---
 
 ## Flux fonctionnels
 
-### Cas nominal (sans exploit)
+### Cas nominal
 
-1. **Découverte** – Le demandeur consulte la DApp et choisit un auditeur selon son score et son NFT
-2. **Négociation** – Accord off-chain sur le périmètre et le montant
-3. **Réalisation** – L'auditeur réalise l'audit (off-chain), itérations jusqu'à validation
-4. **Dépôt** (on-chain) – Le demandeur dépose le montant total + le CID du rapport vers l'Escrow
-5. **Validation** (on-chain) – L'auditeur confirme : 70% lui sont versés immédiatement, 30% déposés sur Aave v3
-6. **Claim** (on-chain) – À expiration du timelock, l'auditeur récupère les 30% + 2/3 du yield Aave
+1. **Dépôt** – Le demandeur appelle `depositAudit()` : 5 % vont à la Treasury, 95 % sont placés en escrow
+2. **Validation** – L'auditeur appelle `validateAudit()` dans les 10 jours ; la durée de garantie (fixée par le demandeur au dépôt) démarre
+3. **Paiement immédiat** – L'auditeur réclame ses 70 % via `claimPayment()`, sans délai
+4. **Retenue de garantie** – À expiration de la période de garantie, l'auditeur réclame ses 30 % via `claimGuarantee()`
 
-### Cas exploit (phase 6a)
+### Timeout (pas de validation sous 10 jours)
 
-- Le demandeur signale un exploit pendant le timelock → création d'un incident DAO
-- Vote des auditeurs accrédités (quorum 3 sur 5, fenêtre 7 jours)
-- **Exploit validé** : 30% capital + 2/3 yield → demandeur ; 1/3 yield → Treasury ; score auditeur dégradé
-- **Exploit rejeté** : escrow conservé, `claimGuarantee()` reste disponible pour l'auditeur
+Le demandeur peut récupérer ses 95 % via `claimRefundAfterTimeout()`.
 
-### Autres flux
+### Exploit signalé pendant la garantie
 
-- **Refus auditeur (5b)** : l'auditeur refuse le rapport déposé → remboursement 95% au demandeur
-- **Non-validation sous 10 jours (5c)** : le demandeur peut récupérer son dépôt
+1. Le demandeur appelle `reportExploit()` => incident créé dans DAOVoting
+2. La DAO vote via `resolveIncident()`
+   - **Exploit validé** : les 30 % de garantie vont au demandeur (`claimGuaranteeAfterExploit()`)
+   - **Exploit rejeté** : l'auditeur conserve sa garantie (`claimGuarantee()` reste disponible)
 
 ---
 
 ## Modèle économique
 
-Exemple sur un audit de 10 USDC :
+Exemple sur 100 USDC :
 
 ```
-Dépôt initial : 10 USDC
-├── 5%  → Treasury (immédiat)          = 0,50 USDC
-└── 95% → Escrow                       = 9,50 USDC
-    ├── 70% → Auditeur (à validation)  = 6,65 USDC
-    └── 30% → Aave v3 (timelock)       = 2,85 USDC
-
-À expiration :
-  CAS NORMAL  → 2,85 USDC + 2/3 yield → Auditeur | 1/3 yield → Treasury
-  CAS EXPLOIT → 2,85 USDC + 2/3 yield → Demandeur | 1/3 yield → Treasury
+Dépôt : 100 USDC
+├── 5 USDC  => Treasury (frais immédiat)
+└── 95 USDC => Escrow
+    ├── 66,50 USDC (70 %) => Auditeur, dès la validation
+    └── 28,50 USDC (30 %) => Auditeur, après la période de garantie
 ```
 
 ---
 
-## Architecture des smart contracts
+## Score de réputation
 
-| Contrat | Responsabilité | Dépendances |
-|---|---|---|
-| `AuditRegistry.sol` | Contrat principal : gestion des audits, des auditeurs, orchestration | OZ: Ownable, AccessControl, ReentrancyGuard |
-| `AuditEscrow.sol` | Gestion des fonds : dépôt, ventilation 70/30, intégration Aave v3 | Aave v3: IPool, IAToken ; OZ: ReentrancyGuard |
-| `ReputationBadge.sol` | NFT ERC-721 soul-bound (EIP-5192), 1 par auditeur, metadata dynamiques | OZ: ERC721, EIP-4906 |
-| `DAOVoting.sol` | Vote sur les incidents, calcul du quorum 3/5 | OZ: AccessControl |
-| `Treasury.sol` | Réception et conservation des frais du protocole | OZ: Ownable |
-
----
-
-## NFT ReputationBadge
-
-- Standard **ERC-721** + **EIP-5192** (soul-bound) + **EIP-4906** (metadata dynamiques)
-- Émis à l'inscription de l'auditeur, jamais transférable, jamais brûlé
-- Metadata on-chain : `reputationScore`, `totalAudits`, `totalExploits`, `registrationDate`, `isActive`
-- Sert de ticket d'entrée pour voter dans la DAO (`isActive == true` requis)
-
----
-
-## Calcul du score de réputation
-
-Le score est un `uint256` stocké dans la struct `Auditor`. Plancher : 0. Pas de plafond.
-
-**Bonus (après `claimGuarantee()` sans exploit) :**
+À chaque `validateAudit()`, le score de l'auditeur est incrémenté :
 
 ```
 Bonus = log10(garantie_en_USDC) × 10
 ```
 
-Approximation via `Math.log10()` d'OpenZeppelin (entier, pas de virgule flottante).
-
-| Dépôt | Garantie (30%) | log10 | Bonus |
-|---|---|---|---|
-| 100 USDC | 30 USDC | 1 | +10 pts |
-| 334 USDC | 100 USDC | 2 | +20 pts |
-| 1 000 USDC | 300 USDC | 2 | +20 pts |
-| 3 340 USDC | 1 000 USDC | 3 | +30 pts |
-
-**Pénalité** : décrémentation proportionnelle si exploit validé par la DAO.
+Si un exploit est ensuite validé par la DAO (`resolveIncident(true)`), le même calcul est appliqué en pénalité (le score ne descend pas en dessous de 0).
 
 ---
 
-## Stockage des données
+## Diagrammes
 
-| Type | Quoi | Où |
-|---|---|---|
-| **On-chain (storage)** | Structs `Auditor`, `Audit`, `EscrowInfo`, `Incident`, `hasVoted`, compteurs | Smart contracts |
-| **Events Solidity** | Nom/spécialités auditeur, historique audits, votes, scores : indexés par la DApp | RPC listener / The Graph |
-| **IPFS (Pinata)** | Rapports d'audit PDF (500 Ko – 5 Mo), preuves d'exploit : seul le CID est on-chain | Pinata (pin permanent) |
-| **Off-chain (DApp)** | Classement, taux sans exploit, yield Aave accumulé, progression timelock | Calculé à la volée |
+![Flux de séquence](docs/sequence.svg)
+
+- [Flux de séquence – source PlantUML](docs/sequence.puml)
+- [Cas d'utilisation – source PlantUML](docs/usecases.puml)
 
 ---
 
 ## Démarrage rapide
 
-### Tests backend
+Voir [backend/README.md](backend/README.md) et [frontend/README.md](frontend/README.md).
 
 ```bash
-cd backend
-npm install
-npx hardhat test
-```
+# Terminal 1 – nœud local
+cd backend && npx hardhat node
 
-### Développement local (frontend + contrats)
+# Terminal 2 – déploiement + seed
+cd backend && npx hardhat run scripts/deployAllAndSeed.ts --network localhost
 
-**Terminal 1 : nœud Hardhat**
-
-```bash
-cd backend
-npx hardhat node
-```
-
-**Terminal 2 : déploiement + seed**
-
-```bash
-cd backend
-npx hardhat run scripts/seed.ts --network localhost
-```
-
-Déploie tous les contrats, inscrit 4 auditeurs de test et met à jour automatiquement `frontend/src/constants/contracts.ts`.
-
-**Terminal 3 : frontend**
-
-```bash
-cd frontend
-npm install
-cp .env.example .env   # renseigner VITE_REOWN_PROJECT_ID
-npm run dev
-```
-
-### Déploiement sur Sepolia
-
-```bash
-# 1. Enregistrer le déployeur dans le keystore Hardhat
-cd backend
-npx hardhat keystore set SEPOLIA_RPC_URL
-npx hardhat keystore set SEPOLIA_PRIVATE_KEY
-
-# 2. Configurer les comptes auditeurs de test
-cp .env.example .env
-# Renseigner AUDITOR_1..4_PRIVATE_KEY dans .env (comptes avec ETH Sepolia)
-
-# 3. Lancer le seed
-npx hardhat run scripts/seed.ts --network sepolia
+# Terminal 3 – frontend
+cd frontend && npm run dev
 ```
 
 ---
 
-## Stack technique
+## Ce qui reste à faire
 
-**Backend / Blockchain**
-- Solidity 0.8.28, Hardhat 3, TypeScript
-- OpenZeppelin v5, Aave v3 (Sepolia : `0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951`)
-- Tests : Viem + `node:test`, couverture cible > 90%
-- Réseau de test : **Sepolia** | Cible : Ethereum Mainnet (Base à évaluer)
+### Contrats
 
-**Frontend**
-- React + TypeScript
-- Wagmi v2 + RainbowKit v2 (connexion wallet)
-- Viem (appels contracts)
-- IPFS via Pinata (stockage rapports)
-- Déploiement : GitHub + Vercel
-
----
-
-## Règles de gestion clés
-
-- Un auditeur ne peut s'inscrire qu'une seule fois par adresse (RG-01)
-- Un seul audit actif par paire demandeur/auditeur (RG-14)
-- La durée de garantie minimum est de 3 mois (RG-22)
-- Les 5% de frais sont prélevés immédiatement et ne sont pas remboursables même en cas de refus
-- Pattern **pull payment** pour les versements (pas de push automatique)
-- L'auditeur mis en cause ne peut pas voter sur son propre incident (RG-44)
-- Un incident sans quorum après 7 jours expire : `claimGuarantee()` est débloqué pour l'auditeur (RG-49)
-
----
-
-## Glossaire rapide
-
-| Terme | Définition |
+| Fonctionnalité | État |
 |---|---|
-| **Escrow** | Séquestre – fonds bloqués par le smart contract jusqu'à condition remplie |
-| **Timelock** | Période de blocage définie lors de la validation (min. 3 mois) |
-| **aToken** | Token Aave représentant un dépôt + intérêts accumulés (ex : aUSDC) |
-| **Soul-bound NFT** | NFT non transférable lié à une adresse wallet (EIP-5192) |
-| **CID** | Content Identifier – identifiant unique d'un fichier IPFS |
-| **Quorum** | Nombre minimum de votes requis (3/5 pour la DAO AuditRegistry) |
-| **Pull Payment** | Pattern de sécurité : le destinataire retire ses fonds lui-même |
-| **Yield** | Intérêts générés par un dépôt sur Aave v3 |
+| Intégration Aave v3 (yield sur la garantie) | Non implémenté – `AuditEscrow` fait un transfert USDC direct |
+| `DAOVoting.sol` de production | Mock uniquement – pas de vrai système de vote |
+| `Treasury.sol` de production | Mock uniquement |
+| USDC mainnet / Sepolia réel | Mock uniquement |
+
+### Frontend
+
+| Fonctionnalité | État |
+|---|---|
+| Page demandeur : remboursement après timeout (`claimRefundAfterTimeout`) | Manquant |
+| Page demandeur : signalement d'exploit (`reportExploit`) | Manquant |
+| Page demandeur : récupérer la garantie après exploit validé (`claimGuaranteeAfterExploit`) | Manquant |
+| Interface de vote DAO (`resolveIncident`) | Manquant |
+| Upload IPFS intégré (Pinata) | Manquant – le CID est saisi manuellement |
+
+---
+
+## Stack
+
+**Backend :** Solidity 0.8.28 · Hardhat 3 · TypeScript · OpenZeppelin v5  
+**Frontend :** React 19 · TypeScript · Vite · Wagmi v3 · Viem · Reown AppKit · TailwindCSS  
+**Stockage rapports :** IPFS via Pinata (seul le CID est on-chain)  
+**Déploiement :** Sepolia testnet · Vercel (frontend)

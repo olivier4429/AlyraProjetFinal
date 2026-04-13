@@ -27,11 +27,11 @@ export type DepositStep =
   | "error";
 
 /**
- * Gère le flux en deux transactions : approve USDC → depositAudit.
+ * Gère le flux en deux transactions : approve USDC => depositAudit.
  *
  * Utilisation :
  *   const { startFlow, reset, step, approveTxHash, depositTxHash, error } = useDepositAudit();
- *   startFlow(params)  → déclenche l'approbation, puis le dépôt automatiquement après confirmation.
+ *   startFlow(params)  => déclenche l'approbation, puis le dépôt automatiquement après confirmation.
  */
 export function useDepositAudit() {
   // ── Étape 1 : approbation USDC ────────────────────────────────────────────

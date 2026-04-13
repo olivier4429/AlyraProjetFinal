@@ -26,7 +26,7 @@ export interface AuditEntry {
 
 /**
  * Retourne tous les audits assignés à un auditeur donné.
- * Stratégie : getContractEvents(AuditDeposited, { auditor }) → getAudit(auditId) pour le statut actuel.
+ * Stratégie : getContractEvents(AuditDeposited, { auditor }) => getAudit(auditId) pour le statut actuel.
  */
 export function useAuditorAudits(auditorAddress: Address | undefined) {
   const publicClient = usePublicClient();

@@ -30,7 +30,7 @@ export default function StepConnexion({
             onClick={onNext}
             className="px-8 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg transition-colors"
           >
-            Continuer →
+            Continuer
           </button>
         </>
       ) : (

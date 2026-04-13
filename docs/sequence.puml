@@ -11,29 +11,36 @@ participant USDC           as U
 participant Treasury       as T
 participant DAOVoting      as V
 
-== Inscription ==
+== Inscription (1) ==
 
 A  -> R : registerAuditor(pseudo, specialties)
 R  -> B : mintNft(auditor)
 B --> A : ERC721 token #N  (soul-bound)
 R --> A : <<event>> AuditorRegistered
 
+== Recherche auditeur - Négociation (2-3) ==
+
 == Dépôt d'un audit (4) ==
 
-D  -> U : approve(registry, 100 USDC)
-D  -> R : depositAudit(auditor, contractAddr, reportCID, 100 USDC)
-R  -> U : transferFrom(requester → treasury,  5 USDC)
-R  -> U : transferFrom(requester → escrow,   95 USDC)
+D  -> U : approve(registry, 1000 USDC)
+D  -> R : depositAudit(auditor, contractAddr, reportCID, 1000 USDC, guaranteeDuration=90j)
+R  -> U : transferFrom(requester => treasury,  50 USDC)
+R  -> U : transferFrom(requester => escrow,   950 USDC)
 R --> D : <<event>> AuditDeposited(auditId=1)
+
+== Définition de l'adresse du contrat audité (optionnel) ==
+
+A  -> R : setAuditedContractAddress(auditId=1, contractAddr)
+R --> A : <<event>> AuditedContractAddressSet
 
 == Validation (5a) ==
 
-A  -> R : validateAudit(auditId=1, guaranteeDuration=90j)
-R  -> E : lockFunds(auditId, auditor, requester, 95 USDC)
+A  -> R : validateAudit(auditId=1)
+R  -> E : lockFunds(auditId, auditor, requester, 950 USDC)
 note right of E
   Ventilation interne :
-  immediateAmount = 66,5 USDC (70 %)
-  guaranteeAmount = 28,5 USDC (30 %)
+  immediateAmount = 665 USDC (70 %)
+  guaranteeAmount = 285 USDC (30 %)
 end note
 R  -> B : incAudits(tokenId, amount)
 R --> A : <<event>> AuditValidated(guaranteeEnd)
@@ -42,7 +49,7 @@ R --> A : <<event>> AuditValidated(guaranteeEnd)
 
 A  -> R : claimPayment(auditId=1)
 R  -> E : releasePayment(auditId, auditor)
-E  -> U : transfer(auditor, 66,5 USDC)
+E  -> U : transfer(auditor, 665 USDC)
 E --> A : <<event>> PaymentReleased
 
 == Récupération de la garantie (après guaranteeEnd ou après refus) (7a) ==
@@ -50,15 +57,15 @@ E --> A : <<event>> PaymentReleased
 A  -> R : claimGuarantee(auditId=1)
 note right of R : vérifie block.timestamp ≥ guaranteeEnd
 R  -> E : releaseGuarantee(auditId, auditor)
-E  -> U : transfer(auditor, 28,5 USDC)
+E  -> U : transfer(auditor, 285 USDC)
 E --> A : <<event>> GuaranteeReleased
 
 == Remboursement après timeout (alternatif) (5b) ==
 
 note over D : 10 jours écoulés sans validation
 D  -> R : claimRefundAfterTimeout(auditId=1)
-R  -> E : refund(auditId, requester, 95 USDC)
-E  -> U : transfer(requester, 95 USDC)
+R  -> E : refund(auditId, requester, 950 USDC)
+E  -> U : transfer(requester, 950 USDC)
 R --> D : <<event>> RefundClaimed
 
 == Signalement d'exploit (alternatif, pendant la garantie) (8a) ==
@@ -77,7 +84,7 @@ DAO -> R : resolveIncident(auditId=1, validated=false)
 R --> DAO : <<event>> IncidentResolved(validated=false)
 note over A : audit CLOSED + exploitValidated=false\nl'auditeur récupère sa garantie
 A  -> R : claimGuarantee(auditId=1)
-note right of R : status=CLOSED et exploitValidated=false\n→ autorisé
+note right of R : status=CLOSED et exploitValidated=false\n=> autorisé
 R  -> E : releaseGuarantee(auditId, auditor)
 E  -> U : transfer(auditor, 28,5 USDC)
 E --> A : <<event>> GuaranteeReleased

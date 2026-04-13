@@ -1,118 +1,62 @@
 # AuditRegistry – Backend
 
-Contrats Solidity + tests Hardhat du protocole AuditRegistry.
+Contrats Solidity et tests du protocole AuditRegistry.
 
-**Stack :** Hardhat 3 · Solidity 0.8.28 · TypeScript · Viem · `node:test`
+## Contrats
 
----
+| Contrat | Responsabilité |
+|---|---|
+| `AuditRegistry.sol` | Contrat principal : inscriptions, dépôts, validations, gestion des exploits |
+| `AuditEscrow.sol` | Séquestre des fonds USDC, pull payment (paiement 70 % + garantie 30 %) |
+| `ReputationBadge.sol` | NFT ERC-721 soul-bound (EIP-5192) – score de réputation des auditeurs |
+| `mocks/MockUSDC.sol` | Token ERC-20 mintable pour les tests |
+| `mocks/MockTreasury.sol` | Réceptacle des frais de protocole (5 %) |
+| `mocks/MockDAOVoting.sol` | DAO simplifiée pour la résolution des incidents |
 
-## Prérequis
+## Diagrammes
 
-- Node.js ≥ 22
+![Flux de séquence](../docs/sequence.svg)
 
----
-
-## Installation
-
-```bash
-npm install
-```
-
----
+- [Flux de séquence – source PlantUML](../docs/sequence.puml)
+- [Cas d'utilisation – source PlantUML](../docs/usecases.puml)
 
 ## Lancer les tests
 
 ```bash
-# Tous les tests
+npm install
 npx hardhat test
-
-# Uniquement les tests TypeScript (node:test)
-npx hardhat test nodejs
 ```
 
-Les tests utilisent le runner natif Node.js (`node:test`) et la bibliothèque `viem` pour les interactions on-chain.
+## Déploiement local
 
----
-
-## Seed : déploiement + données de test
-
-Le script `scripts/seed.ts` déploie tous les contrats et inscrit 4 auditeurs de test.
-Il met aussi à jour automatiquement `frontend/src/constants/contracts.ts` avec les adresses déployées.
-
-### En local (réseau Hardhat)
-
-**Terminal 1 : nœud Hardhat local**
-
+**Terminal 1 – nœud Hardhat :**
 ```bash
 npx hardhat node
 ```
 
-**Terminal 2 : seed**
-
+**Terminal 2 – déploiement + seed :**
 ```bash
-npx hardhat run scripts/seed.ts --network localhost
+npx hardhat run scripts/deployAllAndSeed.ts --network localhost
 ```
 
-Cela déploie :
+Le script déploie tous les contrats, inscrit 4 auditeurs de test, dépose et valide un audit, et met à jour automatiquement `frontend/.env` avec les adresses et le bloc de départ.
 
-- `ReputationBadge`
-- `MockUSDC`
-- `MockTreasury`
-- `MockAuditEscrow`
-- `MockDAOVoting`
-- `AuditRegistry`
+## Déploiement sur Sepolia
 
-Puis inscrit les 4 auditeurs de test :
-
-| Pseudo | Spécialités |
-|---|---|
-| Alice Xu | DeFi, Lending, Oracle |
-| Baptiste Moreau | Bridge, Layer2, DAO |
-| Clara Lefèvre | NFT, DEX, Staking |
-| David Renard | Governance, DeFi, Staking |
-
-### Sur Sepolia
-
-**Prérequis 1 : keystore Hardhat** (déployeur)
-
-`SEPOLIA_RPC_URL` et `SEPOLIA_PRIVATE_KEY` doivent être enregistrés dans le keystore Hardhat :
+**Prérequis :** enregistrer les secrets dans le keystore Hardhat :
 
 ```bash
 npx hardhat keystore set SEPOLIA_RPC_URL
 npx hardhat keystore set SEPOLIA_PRIVATE_KEY
 ```
 
-**Prérequis 2 : fichier `.env`** (auditeurs de test)
-
-Copier `.env.example` vers `.env` et renseigner les clés privées des 4 comptes auditeurs.
-Ces comptes doivent avoir un peu d'ETH Sepolia pour payer les frais de gas.
+Copier `.env.example` vers `.env` et renseigner les clés privées des comptes de test (doivent avoir de l'ETH Sepolia).
 
 ```bash
 cp .env.example .env
-# Renseigner AUDITOR_1_PRIVATE_KEY … AUDITOR_4_PRIVATE_KEY
+npx hardhat run scripts/deployAllAndSeed.ts --network sepolia
 ```
 
-**Lancement :**
+## Stack
 
-```bash
-npx hardhat run scripts/seed.ts --network sepolia
-```
-
----
-
-## Contrats
-
-| Contrat | Responsabilité |
-|---|---|
-| `AuditRegistry.sol` | Contrat principal : inscriptions, dépôts, validations, exploits |
-| `ReputationBadge.sol` | NFT ERC-721 soul-bound (EIP-5192), score de réputation |
-| `mocks/MockUSDC.sol` | Token ERC-20 pour les tests |
-| `mocks/MockTreasury.sol` | Contrat recevant les frais du protocole |
-| `mocks/MockAuditEscrow.sol` | Escrow simplifié pour les tests |
-| `mocks/MockDAOVoting.sol` | DAO simplifiée pour les tests |
-
----
-
-## CI
-
-Les tests s'exécutent automatiquement sur GitHub Actions à chaque push via `.github/workflows/test.yml`.
+Hardhat 3 · Solidity 0.8.28 · TypeScript · Viem · `node:test`

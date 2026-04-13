@@ -7,7 +7,7 @@ import type { AuditEntry } from "./useAuditorAudits";
 
 /**
  * Liste tous les audits enregistrés on-chain (sans filtre d'auditeur).
- * Stratégie : getContractEvents(AuditDeposited) → getAudit(id) pour l'état courant.
+ * Stratégie : getContractEvents(AuditDeposited) => getAudit(id) pour l'état courant.
  */
 export function useAllAudits() {
   const publicClient = usePublicClient();

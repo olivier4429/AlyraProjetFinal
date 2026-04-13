@@ -29,7 +29,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  *               Treasury (5%)            AuditEscrow (95%)
  *                5 USDC                    95 USDC
  *
- *  PHASE 5 : validateAudit()  →  lockFunds()
+ *  PHASE 5a : validateAudit()  =>  lockFunds()
  *  ─────────────────────────────────────────────────────────
  *  AuditRegistry ──────────────────────► AuditEscrow
  *                                          │
@@ -39,21 +39,21 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  *                       70% = 66.5 USDC            30% = 28.5 USDC
  *                     (claimable aussitôt)       (bloqué jusqu'à guaranteeEnd)
  *
- *  PHASE 5b : claimPayment()  (pull payment, pas de délai)
- *  ─────────────────────────────────────────────────────────
- *  Auditeur ──► AuditRegistry ──► AuditEscrow.releasePayment()
- *  Auditeur ◄──[66.5 USDC]──────────────────────────────────
- *
- *  PHASE 5c : claimGuarantee()  (après guaranteeEnd)
- *  ─────────────────────────────────────────────────────────
- *  Auditeur ──► AuditRegistry ──► AuditEscrow.releaseGuarantee()
- *  Auditeur ◄──[28.5 USDC]──────────────────────────────────
- *
- *  PHASE 5d : claimRefundAfterTimeout()  (si pas de validation sous 10j)
+ *  PHASE 5b : claimRefundAfterTimeout()  (alternatif – si pas de validation sous 10j)
  *  ─────────────────────────────────────────────────────────
  *  Requester ──► AuditRegistry ──► AuditEscrow.refund()
  *  Requester ◄──[95 USDC]──────────────────────────────────
  *  Note : les 5 USDC Treasury ne sont pas remboursés
+ *
+ *  PHASE 6a : claimPayment()  (pull payment, pas de délai après validation)
+ *  ─────────────────────────────────────────────────────────
+ *  Auditeur ──► AuditRegistry ──► AuditEscrow.releasePayment()
+ *  Auditeur ◄──[66.5 USDC]──────────────────────────────────
+ *
+ *  PHASE 7a : claimGuarantee()  (après guaranteeEnd, ou exploit rejeté)
+ *  ─────────────────────────────────────────────────────────
+ *  Auditeur ──► AuditRegistry ──► AuditEscrow.releaseGuarantee()
+ *  Auditeur ◄──[28.5 USDC]──────────────────────────────────
  *
  *  CAS EXPLOIT : resolveIncident(validated=true)
  *  ─────────────────────────────────────────────────────────

@@ -178,7 +178,7 @@ export default function StepIdentite({
           onClick={handleNext}
           className="flex-1 px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg transition-colors"
         >
-          Continuer →
+          Continuer
         </button>
       </div>
     </div>

@@ -1,3 +1,5 @@
+# Lance les tests Hardhat à chaque push et pull request.
+# Seul le répertoire backend est concerné (contrats Solidity + tests TypeScript).
 name: Tests
 
 on:
@@ -9,18 +11,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Récupère le code source du dépôt
       - uses: actions/checkout@v4
 
+      # Configure Node.js 22 avec mise en cache de node_modules via package-lock.json
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: "npm"
           cache-dependency-path: backend/package-lock.json
 
+      # npm ci installe exactement les versions du lock file (plus fiable que npm install en CI)
       - name: Install dependencies
         working-directory: backend
-        run: npm ci # Utiliser npm ci plus adapté pour les environnements CI que npm install
+        run: npm ci
 
+      # Exécute tous les tests Hardhat 
       - name: Run tests
         working-directory: backend
         run: npx hardhat test

@@ -9,11 +9,22 @@ const { viem } = await network.connect();
 // Helpers
 // =========================================================================
 
+/**
+ * Décode une tokenURI ERC-721 encodée en base64.
+ * Le contrat retourne : "data:application/json;base64,<payload>"
+ * où <payload> est un objet JSON { name, description, image, attributes }.
+ */
 function decodeTokenURI(uri: string): Record<string, unknown> {
     const base64 = uri.replace("data:application/json;base64,", "");
     return JSON.parse(Buffer.from(base64, "base64").toString("utf8"));
 }
 
+/**
+ * Extrait la valeur d'un attribut ERC-721 par son trait_type.
+ * Les attributs sont stockés dans json.attributes sous la forme :
+ *   [{ trait_type: "reputationScore", value: 10 }, ...]
+ * Retourne undefined si le trait n'existe pas.
+ */
 function getAttribute(
     json: Record<string, unknown>,
     traitType: string
@@ -30,9 +41,9 @@ function getAttribute(
 // =========================================================================
 const SVG_IMAGE =
     "<svg xmlns='http://www.w3.org/2000/svg'><text>TEST</text></svg>";
-const GUARANTEE_30_USDC = 30_000_000n;   // log10(30)  = 1 → +10 pts
-const GUARANTEE_100_USDC = 100_000_000n; // log10(100) = 2 → +20 pts
-const GUARANTEE_300_USDC = 300_000_000n; // log10(300) = 2 → +20 pts (même palier)
+const GUARANTEE_30_USDC = 30_000_000n;   // log10(30)  = 1 => +10 pts
+const GUARANTEE_100_USDC = 100_000_000n; // log10(100) = 2 => +20 pts
+const GUARANTEE_300_USDC = 300_000_000n; // log10(300) = 2 => +20 pts (même palier)
 
 // =========================================================================
 // Suite principale
@@ -390,7 +401,7 @@ describe("ReputationBadge", () => {
             assert.equal(data.reputationScore, 10n);
         });
 
-        it("log10(300 USDC) = 2 → 20 pts (même palier que 100)", async () => {
+        it("log10(300 USDC) = 2 => 20 pts (même palier que 100)", async () => {
             await badge.write.incAudits([1n, GUARANTEE_300_USDC], {
                 account: registry.account,
             });
@@ -565,7 +576,7 @@ describe("ReputationBadge", () => {
             const registrationDate = getAttribute(json, "Registration Date");
 
             // Le JSON encode les nombres en string via Strings.toString()
-            // → on compare en castant en BigInt
+            // => on compare en castant en BigInt
             assert.equal(BigInt(registrationDate as string), block.timestamp);
         });
 
@@ -634,7 +645,7 @@ describe("ReputationBadge", () => {
     // =========================================================================
 
     describe("Scénarios end-to-end", () => {
-        it("inscription → mint → 3 audits réussis → score correct", async () => {
+        it("inscription => mint => 3 audits réussis => score correct", async () => {
             await badge.write.mintNft([auditor1.account.address], {
                 account: registry.account,
             });
@@ -649,7 +660,7 @@ describe("ReputationBadge", () => {
             assert.equal(data.totalExploits, 0);
         });
 
-        it("inscription → mint → 1 audit → 1 exploit → score correct (20 - 10 = 10)", async () => {
+        it("inscription => mint => 1 audit => 1 exploit => score correct (20 - 10 = 10)", async () => {
             await badge.write.mintNft([auditor1.account.address], {
                 account: registry.account,
             });
@@ -665,7 +676,7 @@ describe("ReputationBadge", () => {
             assert.equal(data.totalExploits, 1);
         });
 
-        it("exploit direct avec score à 0 → score reste à 0", async () => {
+        it("exploit direct avec score à 0 => score reste à 0", async () => {
             await badge.write.mintNft([auditor1.account.address], {
                 account: registry.account,
             });

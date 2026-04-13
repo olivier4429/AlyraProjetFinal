@@ -25,7 +25,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
  *               Treasury (5%)            AuditEscrow (95%)
  *                5 USDC                    95 USDC
  *
- *  PHASE 5 : validateAudit()  →  lockFunds()
+ *  PHASE 5a : validateAudit()  =>  lockFunds()
  *  ─────────────────────────────────────────────────────────
  *  AuditRegistry ──────────────────────► AuditEscrow
  *                                          │
@@ -35,21 +35,21 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
  *                       70% = 66.5 USDC            30% = 28.5 USDC
  *                     (claimable aussitôt)       (bloqué jusqu'à guaranteeEnd)
  *
- *  PHASE 5b : claimPayment()  (pull payment, pas de délai)
- *  ─────────────────────────────────────────────────────────
- *  Auditeur ──► AuditRegistry ──► AuditEscrow.releasePayment()
- *  Auditeur ◄──[66.5 USDC]──────────────────────────────────
- *
- *  PHASE 5c : claimGuarantee()  (après guaranteeEnd)
- *  ─────────────────────────────────────────────────────────
- *  Auditeur ──► AuditRegistry ──► AuditEscrow.releaseGuarantee()
- *  Auditeur ◄──[28.5 USDC]──────────────────────────────────
- *
- *  PHASE 5d : claimRefundAfterTimeout()  (si pas de validation sous 10j)
+ *  PHASE 5b : claimRefundAfterTimeout()  (alternatif – si pas de validation sous 10j)
  *  ─────────────────────────────────────────────────────────
  *  Requester ──► AuditRegistry ──► AuditEscrow.refund()
  *  Requester ◄──[95 USDC]──────────────────────────────────
  *  Note : les 5 USDC Treasury ne sont pas remboursés
+ *
+ *  PHASE 6a : claimPayment()  (pull payment, pas de délai après validation)
+ *  ─────────────────────────────────────────────────────────
+ *  Auditeur ──► AuditRegistry ──► AuditEscrow.releasePayment()
+ *  Auditeur ◄──[66.5 USDC]──────────────────────────────────
+ *
+ *  PHASE 7a : claimGuarantee()  (après guaranteeEnd, ou exploit rejeté)
+ *  ─────────────────────────────────────────────────────────
+ *  Auditeur ──► AuditRegistry ──► AuditEscrow.releaseGuarantee()
+ *  Auditeur ◄──[28.5 USDC]──────────────────────────────────
  *
  *  CAS EXPLOIT : resolveIncident(validated=true)
  *  ─────────────────────────────────────────────────────────
@@ -263,7 +263,7 @@ contract ReputationBadge is ERC721, Ownable {
     ) external onlyRegistry {
         AuditorData storage data = _auditorData[tokenId];
         data.totalAudits += 1;
-        uint256 guaranteeInUsdc = guaranteeAmount / 1e6; // → 100 USDC
+        uint256 guaranteeInUsdc = guaranteeAmount / 1e6; // => 100 USDC
         uint256 gain = Math.log10(guaranteeInUsdc) * 10;
         data.reputationScore = uint64(uint256(data.reputationScore) + gain);
         emit MetadataUpdate(tokenId); // EIP-4906 : signaler que les metadata ont été mises à jour
@@ -276,7 +276,7 @@ contract ReputationBadge is ERC721, Ownable {
     ) external onlyRegistry {
         AuditorData storage data = _auditorData[tokenId];
         data.totalExploits += 1;
-        uint256 guaranteeInUsdc = guaranteeAmount / 1e6; // → 100 USDC
+        uint256 guaranteeInUsdc = guaranteeAmount / 1e6; // => 100 USDC
         uint256 penalty = Math.log10(guaranteeInUsdc) * 10;
 
         // Plancher à 0 : pas de underflow possible

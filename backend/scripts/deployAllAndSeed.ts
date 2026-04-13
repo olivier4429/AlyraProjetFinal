@@ -1,17 +1,17 @@
 /**
- * Script de seed : déploie tous les contrats et inscrit des auditeurs de test.
+ * Script de déploiement et seed : déploie tous les contrats et inscrit des auditeurs de test.
  *
  * Usage :
- *   npx hardhat run scripts/seed.ts --network localhost  (nœud Hardhat local)
- *   npx hardhat run scripts/seed.ts --network sepolia    (Sepolia)
+ *   npx hardhat run scripts/deployAllAndSeed.ts --network localhost  (nœud Hardhat local)
+ *   npx hardhat run scripts/deployAllAndSeed.ts --network sepolia    (Sepolia)
  *
  * Sur le réseau local, les comptes Hardhat pré-financés (accounts[1..4]) sont
  * utilisés pour les auditeurs.
  * Sur Sepolia, les clés privées AUDITOR_N_PRIVATE_KEY du fichier .env sont
  * utilisées. Ces comptes doivent avoir un peu d'ETH Sepolia pour signer.
  *
- * Après exécution, les adresses sont automatiquement écrites dans
- * frontend/src/constants/contracts.ts
+ * Après exécution, les adresses et le bloc de déploiement sont automatiquement
+ * écrits dans frontend/.env (variables VITE_*).
  */
 
 import "dotenv/config";
@@ -62,8 +62,8 @@ let auditorAccounts: Account[];
 let requesterAccounts: Account[];
 
 // Les clés privées sont indispensables ici car ces comptes doivent SIGNER des transactions :
-//   - auditeurs  signe pour registerAuditor()  : le contrat utilise msg.sender comme identité de l'auditeur
-//   - demandeurs signe pour depositAudit()     : le contrat utilise msg.sender comme requester de l'audit
+//   - auditeurs  signe pour registerAuditor() 
+//   - demandeurs signe pour depositAudit()    
 // Une adresse publique seule ne suffit pas pour signer.
 const auditorEnvKeys = [
   process.env.AUDITOR_1_PRIVATE_KEY,
@@ -76,7 +76,7 @@ const auditorEnvKeys = [
 const requesterEnvKeys = [
   process.env.DEMANDEUR_1_PRIVATE_KEY,
   process.env.DEMANDEUR_2_PRIVATE_KEY,
-].filter((k): k is string => !!k && k.length > 0);
+].filter((k): k is string => !!k && k.length > 0); //Filter afin de retirer de potentiels éléments indéfinis ou vides.
 
 const isLocalNetwork = networkName === "localhost" || networkName === "hardhat";
 
@@ -187,7 +187,7 @@ const allSeedAccounts = [...auditorAccounts, ...requesterAccounts];
 for (const account of allSeedAccounts) {
   const hash = await mockUsdc.write.mint([account.address, INITIAL_USDC]);
   await publicClient.waitForTransactionReceipt({ hash });
-  console.log(`  ✅ ${account.address} → 100 000 USDC`);
+  console.log(`  ✅ ${account.address} => 100 000 USDC`);
 }
 
 // =========================================================================
@@ -219,7 +219,7 @@ await publicClient.waitForTransactionReceipt({ hash: depositHash });
 
 // Étape 3 : Validation de l'audit
 // Clé privée auditor1 requise : validateAudit() vérifie msg.sender == audit.auditor
-// C'est ici que incAudits() est appelé → le score de réputation est calculé et mis à jour
+// C'est ici que incAudits() est appelé => le score de réputation est calculé et mis à jour
 const validateHash = await registry.write.validateAudit(
   [1n],
   { account: auditor1 }
