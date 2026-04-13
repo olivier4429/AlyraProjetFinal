@@ -171,9 +171,6 @@ for (let i = 0; i < registrationCount; i++) {
     `  ✅ ${pseudo.padEnd(18)} adresse: ${account.address}  tokenId: #${tokenId}`
   );
 }
-// =========================================================================
-// Génération d'activités pour l'auditeur 1 avec le demandeur 1
-// =========================================================================
 
 // =========================================================================
 // Mint USDC à tous les comptes de seed
@@ -288,3 +285,4 @@ console.log(`  MockUSDC        : ${mockUsdc.address}`);
 console.log(`  MockTreasury    : ${mockTreasury.address}`);
 console.log(`  AuditEscrow     : ${escrow.address}`);
 console.log(`  MockDAOVoting   : ${mockDao.address}`);
+console.log(`  Deploy block    : ${deployBlock}`);
