@@ -374,7 +374,7 @@ export default function DepositPage() {
             ? <span className="text-xs text-rose-400">{formErrors.amountUsdc}</span>
             : amountUsdc && (
               <span className="text-xs text-gray-500">
-                Frais protocole 5 % = {(parseFloat(amountUsdc || "0") * 0.05).toFixed(2)} USDC =>
+                Frais protocole 5 % = {(parseFloat(amountUsdc || "0") * 0.05).toFixed(2)} USDC /
                 {" "}{(parseFloat(amountUsdc || "0") * 0.95).toFixed(2)} USDC en séquestre
               </span>
             )

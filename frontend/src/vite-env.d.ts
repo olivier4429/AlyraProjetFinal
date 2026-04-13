@@ -2,6 +2,11 @@
 
 interface ImportMetaEnv {
   readonly VITE_REOWN_PROJECT_ID: string;
+  readonly VITE_AUDIT_REGISTRY_ADDRESS: string;
+  readonly VITE_AUDIT_ESCROW_ADDRESS: string;
+  readonly VITE_REPUTATION_BADGE_ADDRESS: string;
+  readonly VITE_USDC_ADDRESS: string;
+  readonly VITE_DEPLOY_BLOCK: string;
 }
 
 interface ImportMeta {
