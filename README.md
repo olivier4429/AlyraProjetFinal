@@ -44,7 +44,7 @@ Le demandeur peut récupérer ses 95 % via `claimRefundAfterTimeout()`.
 ### Exploit signalé pendant la garantie
 
 1. Le demandeur appelle `reportExploit()` => incident créé dans DAOVoting
-2. La DAO vote via `resolveIncident()`
+2. La DAO vote dans `MockDAOVoting`, qui appelle `resolveIncident()` sur `AuditRegistry` une fois le quorum atteint
    - **Exploit validé** : les 30 % de garantie vont au demandeur (`claimGuaranteeAfterExploit()`)
    - **Exploit rejeté** : l'auditeur conserve sa garantie (`claimGuarantee()` reste disponible)
 

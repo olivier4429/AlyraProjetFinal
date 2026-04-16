@@ -1,18 +1,13 @@
 import { useState } from "react";
-import { isAddress, formatUnits } from "viem";
+import { isAddress, formatUnits, zeroAddress } from "viem";
 import type { Address } from "viem";
-import { useAccount, useReadContract } from "wagmi";
+import { useConnection, useReadContract } from "wagmi";
 import { useAuditors } from "../hooks/useAuditors";
 import { useDepositAudit } from "../hooks/useDepositAudit";
 import { USDC_ABI } from "../abi/MockUSDC";
 import { USDC_ADDRESS, AUDIT_REGISTRY_ADDRESS } from "../constants/contracts";
 import Alert from "../components/ui/Alert";
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function shortenAddress(addr: string) {
-  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
-}
+import { shortenAddress } from "../utils";
 
 function etherscanTx(hash: string) {
   return `https://sepolia.etherscan.io/tx/${hash}`;
@@ -78,7 +73,7 @@ function StepRow({ num, label, status, txHash }: StepRowProps) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function DepositPage() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useConnection();
   const { auditors, isLoading: auditorsLoading } = useAuditors();
   const { startFlow, reset, step, approveTxHash, depositTxHash, error } = useDepositAudit();
 
@@ -115,7 +110,6 @@ export default function DepositPage() {
 
   // ── Validation ─────────────────────────────────────────────────────────────
   // Adresse nulle si le contrat n'est pas encore déployé
-  const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
 
   const effectiveDuration = useCustomDuration
     ? (parseInt(customSeconds) || 0)
@@ -145,7 +139,7 @@ export default function DepositPage() {
       auditor,
       auditedContractAddress: (contractAddress.trim() && isAddress(contractAddress)
         ? contractAddress as Address
-        : ZERO_ADDRESS),
+        : zeroAddress),
       reportCid: cid.trim(),
       amountUsdc,
       guaranteeDuration: effectiveDuration,

@@ -1,0 +1,137 @@
+@startuml components
+title Architecture fonctionnelle - AuditRegistry
+
+top to bottom direction
+hide stereotype
+skinparam componentStyle rectangle
+skinparam defaultTextAlignment center
+skinparam component {
+  BackgroundColor #1F2937
+  FontColor #E5E7EB
+  BorderColor #4B5563
+}
+skinparam package {
+  BackgroundColor #111827
+  FontColor #9CA3AF
+  BorderColor #374151
+}
+skinparam package<<Pages>> {
+  BackgroundColor #FEF9C3
+  FontColor #713F12
+  BorderColor #EAB308
+}
+skinparam package<<HooksR>> {
+  BackgroundColor #DCFCE7
+  FontColor #14532D
+  BorderColor #22C55E
+}
+skinparam package<<HooksW>> {
+  BackgroundColor #FEE2E2
+  FontColor #7F1D1D
+  BorderColor #EF4444
+}
+skinparam package<<SC>> {
+  BackgroundColor #DBEAFE
+  FontColor #1E3A5F
+  BorderColor #3B82F6
+}
+skinparam actor {
+  BackgroundColor #1F2937
+  FontColor #E5E7EB
+  BorderColor #4B5563
+}
+skinparam arrow {
+  Color #6B7280
+  FontColor #9CA3AF
+  FontSize 10
+}
+
+' ── Acteurs ──────────────────────────────────────────────────────────────────
+
+actor "Auditeur"  as A
+actor "Demandeur" as D
+actor "DAO"       as DAO
+
+' ── Pages ────────────────────────────────────────────────────────────────────
+
+package "Pages" <<Pages>> {
+  component "Accueil"      as PHome
+  component "Explorateur"  as PExplorer
+  component "Dépôt"        as PDeposit
+  component "Validation"   as PValidation
+  component "Mon profil"   as PInscription
+}
+
+' ── Hooks ────────────────────────────────────────────────────────────────────
+
+package "Hooks lecture" <<HooksR>> {
+  component "useAuditors · useAudits · useProtocolStats\nuseReputationBadge · useAuditorSpecialties\nusePaymentClaimed · useGuaranteeClaimed" as HR
+}
+
+package "Hooks écriture" <<HooksW>> {
+  component "useDepositAudit · useAuditRegistry" as HW
+}
+
+' ── Externe ──────────────────────────────────────────────────────────────────
+
+component "Reown AppKit\n(connexion wallet)" as Wallet
+component "IPFS / Pinata"                    as IPFS
+
+' ── Smart Contracts ──────────────────────────────────────────────────────────
+
+package "Smart Contracts" <<SC>> {
+  component "AuditRegistry"   as Registry
+  component "AuditEscrow"     as Escrow
+  component "ReputationBadge" as Badge
+  component "MockUSDC"        as USDC
+  component "MockDAOVoting"   as DAOC
+  component "MockTreasury"    as Treasury
+}
+
+' ── Acteurs → Pages / Externe ─────────────────────────────────────────────────
+
+A   --> PHome        : consulte
+A   --> PValidation  : valide · réclame
+A   --> PInscription : s'inscrit · met à jour
+A   --> PExplorer    : consulte
+A   --> IPFS         : dépose le rapport
+
+D   --> PHome    : consulte
+D   --> PDeposit : dépose un audit + CID
+D   --> PExplorer: consulte
+
+A   --> Wallet : connexion
+D   --> Wallet : connexion
+
+DAO --> DAOC     : vote()
+DAOC --> Registry: resolveIncident()
+
+' ── Pages → Hooks ─────────────────────────────────────────────────────────────
+
+PHome        --> HR
+PExplorer    --> HR
+PDeposit     --> HR
+PDeposit     --> HW
+PValidation  --> HR
+PValidation  --> HW
+PInscription --> HR
+PInscription --> HW
+
+' ── Hooks → Contrats ──────────────────────────────────────────────────────────
+
+HR --> Registry : getContractEvents · useReadContract
+HR --> Badge    : useReadContract
+HR --> Escrow   : getContractEvents
+
+HW --> USDC     : approve()
+HW --> Registry : depositAudit · validateAudit\nclaimPayment · claimGuarantee\nregisterAuditor · updateSpecialties
+
+' ── Contrats entre eux ────────────────────────────────────────────────────────
+
+Registry --> Badge  : mintNft · incAudits · incExploits
+Registry --> Escrow : lockFunds · releasePayment\nreleaseGuarantee · refund
+Registry --> USDC     : transferFrom
+Registry --> DAOC     : createIncident · hasIncident
+Registry --> Treasury : transfer (5%)
+
+@enduml

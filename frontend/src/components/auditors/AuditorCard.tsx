@@ -2,9 +2,7 @@ import type { Auditor } from "../../types";
 import Badge, { getVariantForSpecialty } from "../ui/Badge";
 import ScoreBar from "../ui/ScoreBar";
 
-function shortenAddress(address: string): string {
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
+import { shortenAddress } from "../../utils";
 
 function getInitials(name: string): string {
   return name

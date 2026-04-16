@@ -1,20 +1,8 @@
 import { useState } from "react";
-import { formatUnits } from "viem";
-import { useAllAudits } from "../hooks/useAllAudits";
-import { AuditStatus } from "../hooks/useAuditorAudits";
+import { formatUnits, zeroAddress } from "viem";
+import { useAudits, AuditStatus } from "../hooks/useAudits";
+import { shortenAddress, shortenCid } from "../utils";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function shortenAddress(addr: string) {
-  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
-}
-
-function shortenCid(cid: string) {
-  if (!cid || cid.length <= 20) return cid || "-";
-  return `${cid.slice(0, 10)}…${cid.slice(-6)}`;
-}
-
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 function statusLabel(status: number) {
   if (status === AuditStatus.PENDING) return "En attente";
@@ -146,7 +134,7 @@ function AuditRow({
           <div className="flex flex-col gap-0.5">
             <span className="text-gray-500 uppercase tracking-wider font-semibold">Contrat audité</span>
             <span className="font-mono text-gray-300">
-              {auditedContractAddress === ZERO_ADDRESS ? (
+              {auditedContractAddress === zeroAddress ? (
                 <span className="italic text-gray-500">Non déployé</span>
               ) : (
                 shortenAddress(auditedContractAddress)
@@ -212,7 +200,7 @@ function AuditRow({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function ExplorerPage() {
-  const { audits, isLoading, error } = useAllAudits();
+  const { audits, isLoading, error } = useAudits();
   const [filter, setFilter] = useState<Filter>("all");
 
   const filtered = audits.filter((a) => matchesFilter(a.status, filter));

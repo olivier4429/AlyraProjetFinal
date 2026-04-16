@@ -4,6 +4,7 @@ import type { Specialty } from "../../types";
 import Badge, { getVariantForSpecialty } from "../ui/Badge";
 import Alert from "../ui/Alert";
 import { useRegisterAuditor } from "../../hooks/useAuditRegistry";
+import { shortenAddress } from "../../utils";
 
 interface StepConfirmationProps {
   address: Address;
@@ -11,10 +12,6 @@ interface StepConfirmationProps {
   specialties: Specialty[];
   onBack: () => void;
   onSuccess: () => void;
-}
-
-function shortenAddress(address: string): string {
-  return `${address.slice(0, 10)}...${address.slice(-8)}`;
 }
 
 type TxStatus = "idle" | "pending" | "confirming" | "success" | "error";

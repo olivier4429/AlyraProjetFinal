@@ -1,25 +1,13 @@
 import { useState, useEffect } from "react";
-import { formatUnits } from "viem";
-import { useAccount } from "wagmi";
+import { formatUnits, zeroAddress } from "viem";
+import { useConnection } from "wagmi";
 import type { Address } from "viem";
-import { useAuditorAudits, AuditStatus } from "../hooks/useAuditorAudits";
+import { useAudits, AuditStatus } from "../hooks/useAudits";
 import { useValidateAudit, useClaimPayment, useClaimGuarantee, useSetAuditedContractAddress } from "../hooks/useAuditRegistry";
-import { usePaymentClaimed } from "../hooks/usePaymentClaimed";
-import { useGuaranteeClaimed } from "../hooks/useGuaranteeClaimed";
+import { usePaymentClaimed, useGuaranteeClaimed } from "../hooks/useEscrowClaimed";
 import Alert from "../components/ui/Alert";
+import { shortenAddress, shortenCid } from "../utils";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function shortenAddress(addr: string) {
-  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
-}
-
-function shortenCid(cid: string) {
-  if (cid.length <= 20) return cid;
-  return `${cid.slice(0, 10)}…${cid.slice(-6)}`;
-}
-
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 function formatTimeRemaining(depositedAt: number): { label: string; urgent: boolean } {
   const deadline = depositedAt + 10 * 24 * 3600;
@@ -243,7 +231,7 @@ function AuditCard({
         <div className="flex flex-col gap-0.5">
           <span className="text-gray-500 uppercase tracking-wider font-semibold">Contrat audité</span>
           <span className="font-mono text-gray-300">
-            {auditedContractAddress === ZERO_ADDRESS ? (
+            {auditedContractAddress === zeroAddress ? (
               <span className="text-gray-500 italic">Non encore déployé</span>
             ) : (
               shortenAddress(auditedContractAddress)
@@ -272,7 +260,7 @@ function AuditCard({
       </div>
 
       {/* Définir l'adresse du contrat audité */}
-      {auditedContractAddress === ZERO_ADDRESS && (
+      {auditedContractAddress === zeroAddress && (
         <SetContractAddressForm auditId={auditId} onSuccess={() => onRefresh(auditId)} />
       )}
 
@@ -395,8 +383,8 @@ function AuditCard({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function ValidationPage() {
-  const { address, isConnected } = useAccount();
-  const { audits, isLoading, error, refreshAudit } = useAuditorAudits(
+  const { address, isConnected } = useConnection();
+  const { audits, isLoading, error, refreshAudit } = useAudits(
     isConnected ? (address as Address) : undefined
   );
 

@@ -74,13 +74,15 @@ D  -> R : reportExploit(auditId=1, preuvesCID)
 R  -> V : createIncident(auditId, reporter, preuvesCID)
 R --> D : <<event>> ExploitReported
 
-DAO -> R : resolveIncident(auditId=1, validated=true)
+DAO -> V : vote(auditId=1, validated=true)
+V   -> R : resolveIncident(auditId=1, validated=true)
 R  -> B : incExploits(tokenId)
 R --> DAO : <<event>> IncidentResolved(validated=true)
 
 == Exploit rejeté par la DAO (8b) ==
 
-DAO -> R : resolveIncident(auditId=1, validated=false)
+DAO -> V : vote(auditId=1, validated=false)
+V   -> R : resolveIncident(auditId=1, validated=false)
 R --> DAO : <<event>> IncidentResolved(validated=false)
 note over A : audit CLOSED + exploitValidated=false\nl'auditeur récupère sa garantie
 A  -> R : claimGuarantee(auditId=1)

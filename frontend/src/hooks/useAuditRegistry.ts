@@ -203,15 +203,13 @@ export function useRegisterAuditor() {
     });
   };
 
-  const error = writeError || receiptError;
-
   return {
     register,
     txHash,
     isSignaturePending,
     isConfirming,
     isSuccess,
-    error,
+    error: writeError ?? receiptError,
     reset,
   };
 }
