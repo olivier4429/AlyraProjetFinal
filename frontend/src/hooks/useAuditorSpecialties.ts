@@ -20,6 +20,9 @@ export function useAuditorSpecialties(address?: Address) {
     setIsLoading(true);
 
     async function load() {
+      // On récupère les deux types d'events en parallèle :
+      // - AuditorSpecialtiesUpdated : mis à jour après une modification
+      // - AuditorRegistered : contient les spécialités initiales à l'inscription
       const [updated, registered] = await Promise.all([
         client!.getContractEvents({
           address: AUDIT_REGISTRY_ADDRESS,
@@ -39,7 +42,8 @@ export function useAuditorSpecialties(address?: Address) {
 
       if (cancelled) return;
 
-      // Merge and sort by blockNumber desc, take the most recent
+      // On fusionne les deux listes et on trie par numéro de bloc décroissant
+      // pour garder uniquement le dernier event, qui reflète l'état le plus récent
       const all = [...updated, ...registered].sort(
         (a, b) => Number(b.blockNumber) - Number(a.blockNumber)
       );
@@ -51,7 +55,7 @@ export function useAuditorSpecialties(address?: Address) {
     }
 
     load().catch(() => { if (!cancelled) setIsLoading(false); });
-    return () => { cancelled = true; };
+    return () => { cancelled = true; }; // cleanup : annule la mise à jour si le composant est démonté
   }, [address, client]);
 
   return { specialties, isLoading };

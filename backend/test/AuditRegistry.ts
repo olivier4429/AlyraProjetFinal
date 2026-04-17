@@ -257,15 +257,6 @@ describe("AuditRegistry", () => {
         });
 
 
-        it("auditeur isActive après inscription", async () => {
-            await registry.write.registerAuditor(
-                ["alice", ["DeFi"]],
-                { account: auditor1.account }
-            );
-            const data = await badge.read.getAuditorData([auditor1.account.address]);
-            assert.equal(data.isActive, true);
-        });
-
         it("score initial à 0", async () => {
             await registry.write.registerAuditor(
                 ["alice", ["DeFi"]],
@@ -449,18 +440,6 @@ describe("AuditRegistry", () => {
             assert.equal(before - after, AUDIT_AMOUNT);
         });
 
-        it("hasPendingAudit mis à true", async () => {
-            await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
-                { account: requester.account }
-            );
-            const pending = await registry.read.hasPendingAudit([
-                requester.account.address,
-                auditor1.account.address,
-            ]);
-            assert.equal(pending, true);
-        });
-
         it("depositedAt correctement initialisé", async () => {
             const publicClient = await viem.getPublicClient();
             const hash = await registry.write.depositAudit(
@@ -493,6 +472,16 @@ describe("AuditRegistry", () => {
             );
         });
 
+        it("revert GuaranteeTooShort si guaranteeDuration == 0", async () => {
+            await assert.rejects(
+                registry.write.depositAudit(
+                    [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, 0],
+                    { account: requester.account }
+                ),
+                /AuditRegistry__GuaranteeTooShort/
+            );
+        });
+
         it("revert CannotAuditYourself si requester == auditeur", async () => {
             await assert.rejects(
                 registry.write.depositAudit(
@@ -510,20 +499,6 @@ describe("AuditRegistry", () => {
                     { account: requester.account }
                 ),
                 /AuditRegistry__AuditorNotRegistered/
-            );
-        });
-
-        it("revert AuditAlreadyPending si double dépôt même paire", async () => {
-            await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
-                { account: requester.account }
-            );
-            await assert.rejects(
-                registry.write.depositAudit(
-                    [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
-                    { account: requester.account }
-                ),
-                /AuditRegistry__AuditAlreadyPending/
             );
         });
 
@@ -591,17 +566,6 @@ describe("AuditRegistry", () => {
             const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
             const audit = await registry.read.getAudit([1n]);
             assert.strictEqual(audit.guaranteeEnd, Number(block.timestamp + BigInt(GUARANTEE_DURATION)));
-        });
-
-        it("hasPendingAudit remis à false", async () => {
-            await registry.write.validateAudit([1n],
-                { account: auditor1.account }
-            );
-            const pending = await registry.read.hasPendingAudit([
-                requester.account.address,
-                auditor1.account.address,
-            ]);
-            assert.equal(pending, false);
         });
 
         it("lockFunds : séquestre enregistré avec les bons montants (70/30)", async () => {
@@ -710,18 +674,6 @@ describe("AuditRegistry", () => {
             assert.equal(audit.status, 2); // CLOSED
         });
 
-        it("hasPendingAudit remis à false", async () => {
-            await mineTime(VALIDATION_TIMEOUT + 1n);
-            await registry.write.claimRefundAfterTimeout(
-                [1n],
-                { account: requester.account }
-            );
-            const pending = await registry.read.hasPendingAudit([
-                requester.account.address,
-                auditor1.account.address,
-            ]);
-            assert.equal(pending, false);
-        });
 
         it("refund : l'escrow transfère ESCROW_AMOUNT au requester", async () => {
             await mineTime(VALIDATION_TIMEOUT + 1n);

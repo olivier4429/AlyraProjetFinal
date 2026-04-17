@@ -20,7 +20,6 @@ export const REPUTATION_BADGE_ABI = [
           { name: "reputationScore", type: "uint64" },
           { name: "totalAudits", type: "uint32" },
           { name: "totalExploits", type: "uint32" },
-          { name: "isActive", type: "bool" },
         ],
       },
     ],

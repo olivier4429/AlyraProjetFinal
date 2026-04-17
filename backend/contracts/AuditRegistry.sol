@@ -120,14 +120,7 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     /** @notice Audits asscoiés à un auditId */
     mapping(uint256 => Audit) public audits;
 
-    /**
-     * @notice Vérifie qu'un audit PENDING existe déjà pour une paire requester/auditeur.
-     *          Ca encourage à n'avoir qu'un seul auditeur derrière une meme adresse et non pas une société qui pourrait traiter plusieurs audits en parralelle.
-     * @dev RG-14 : 1 seul audit actif par paire
-     */
-    mapping(address => mapping(address => bool)) public hasPendingAudit;
-
-    /** @notice Compteur d'audits : sert d'auditId */
+    /** @notice Compteur d'audits : sert d'auditId et d'affichage des stats sur la apge d'accueil */
     uint256 public auditCount;
 
     // =========================================================================
@@ -136,10 +129,8 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
 
     error AuditRegistry__AlreadyRegistered();
     error AuditRegistry__AuditorNotRegistered();
-    error AuditRegistry__AuditorNotActive();
     error AuditRegistry__AmountZero();
     error AuditRegistry__EmptyCID();
-    error AuditRegistry__AuditAlreadyPending();
     error AuditRegistry__NotTheAuditor();
     error AuditRegistry__InvalidStatus();
     error AuditRegistry__GuaranteeTooShort();
@@ -220,12 +211,10 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
     // Modifiers
     // =========================================================================
 
-    /** @dev Vérifie que l'adresse est inscrite comme auditeur actif */
+    /** @dev Vérifie que l'adresse est inscrite comme auditeur */
     modifier onlyRegisteredAuditor(address auditor) {
         if (reputationBadge.tokenIdOf(auditor) == 0)
             revert AuditRegistry__AuditorNotRegistered();
-        if (!reputationBadge.getAuditorData(auditor).isActive)
-            revert AuditRegistry__AuditorNotActive();
         _;
     }
 
@@ -341,8 +330,6 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
         if (amount == 0) revert AuditRegistry__AmountZero();
         if (bytes(reportCID).length == 0) revert AuditRegistry__EmptyCID();
         if (guaranteeDuration == 0) revert AuditRegistry__GuaranteeTooShort();
-        if (hasPendingAudit[msg.sender][auditor])
-            revert AuditRegistry__AuditAlreadyPending();
 
         // ============ EFFECTS ============
         uint256 auditId = ++auditCount;
@@ -361,8 +348,6 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
             guaranteeDuration: guaranteeDuration,
             depositedAt: uint40(block.timestamp)
         });
-
-        hasPendingAudit[msg.sender][auditor] = true;
 
         emit AuditDeposited(
             auditId,
@@ -416,8 +401,6 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
         audit.status = AuditStatus.VALIDATED;
         audit.guaranteeEnd = uint40(block.timestamp + audit.guaranteeDuration);
 
-        hasPendingAudit[audit.requester][audit.auditor] = false;
-
         uint256 tokenId = reputationBadge.tokenIdOf(audit.auditor);
         uint256 guarantee = (audit.amount * 30) / 100;
 
@@ -458,7 +441,6 @@ contract AuditRegistry is Ownable, ReentrancyGuard {
 
         // ============ EFFECTS ============
         audit.status = AuditStatus.CLOSED;
-        hasPendingAudit[audit.requester][audit.auditor] = false;
 
         uint256 refundAmount = audit.amount;
 

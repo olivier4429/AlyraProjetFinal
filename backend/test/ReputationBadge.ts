@@ -207,14 +207,6 @@ describe("ReputationBadge", () => {
             assert.equal(data.totalExploits, 0);
         });
 
-        it("_auditorData : isActive == true après mint", async () => {
-            await badge.write.mintNft([auditor1.account.address], {
-                account: registry.account,
-            });
-            const data = await badge.read.getAuditorData([auditor1.account.address]);
-            assert.equal(data.isActive, true);
-        });
-
         it("_auditorData : registrationDate > 0 après mint", async () => {
             await badge.write.mintNft([auditor1.account.address], {
                 account: registry.account,

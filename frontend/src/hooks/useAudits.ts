@@ -37,6 +37,7 @@ export function useAudits(auditorAddress?: Address) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
+  //Fonction allant lire l'état d'un audit depuis le contrat. Elle est utilisée à la fois au chargement initial et pour rafraîchir un audit spécifique.
   async function fetchAudit(auditId: bigint): Promise<AuditEntry | null> {
     try {
       const data = await publicClient!.readContract({
@@ -64,8 +65,8 @@ export function useAudits(auditorAddress?: Address) {
   }
 
   useEffect(() => {
-    // Si un auditeur est spécifié, on attend son adresse avant de charger
     if (!publicClient || !AUDIT_REGISTRY_ADDRESS) return;
+    // Si un auditeur est spécifié, on attend son adresse avant de charger
     if (auditorAddress !== undefined && !auditorAddress) return;
 
     let cancelled = false;
@@ -111,24 +112,27 @@ export function useAudits(auditorAddress?: Address) {
     };
   }, [publicClient, auditorAddress]);
 
-  // Temps réel : nouvel audit déposé
+  //Pour gérer le temps réel. Au chargement du composant, ce code ouvre une websocket avec le RPC.
+  //Tant que le composant useAudits() est monté (pages ExplorerPAge et ValidationPAge), on écoute les événements AuditDeposited. Quand un événement arrive, on appelle la fonction onLogs.
   useWatchContractEvent({
     address: AUDIT_REGISTRY_ADDRESS,
     abi: AUDIT_REGISTRY_ABI,
     eventName: "AuditDeposited",
-    args: auditorAddress ? { auditor: auditorAddress } : undefined,
+    args: auditorAddress ? { auditor: auditorAddress } : undefined, // s'il y a un auditeur spécifié, on ne regarde que les événements qui le concernent
     onLogs: async (logs) => {
       for (const log of logs) {
+        //on ajoute les nouveaux audits.
         const { auditId } = log.args;
         if (!auditId) continue;
         if (audits.some((a) => a.auditId === auditId)) continue; // évite les doublons. some renvoie true si a.auditId === auditId
         const entry = await fetchAudit(auditId); // récupère les données complètes depuis le contrat. await attend que la promesse soit résolue.
-        if (entry) setAudits((prev) => [...prev, entry]); // met à jour l'état en ajoutant le nouvel audit à la liste
+        if (entry) setAudits((prev) => [...prev, entry]); // on ajoute le nouvel audit à la liste
       }
     },
   });
 
   function refreshAudit(auditId: bigint) {
+    //on appelle fetchAudit pour retourner lire le contrat et mettre à jour l'audit concerné.
     fetchAudit(auditId).then((entry) => {
       if (!entry) return;
       setAudits((prev) => prev.map((a) => (a.auditId === auditId ? entry : a))); // crée une nouvelle liste où l'audit est remplacé par sa version fraîche, ce qui déclenche un re-render

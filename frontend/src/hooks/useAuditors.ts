@@ -22,6 +22,7 @@ export function useAuditors() {
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
+  // Récupère les données de réputation d'un auditeur depuis ReputationBadge
   async function fetchAuditorData(addr: Address) {
     return publicClient!.readContract({
       address: REPUTATION_BADGE_ADDRESS,
@@ -31,11 +32,12 @@ export function useAuditors() {
     }).catch(() => null);
   }
 
+  // Construit un objet Auditor à partir des données on-chain
   function buildAuditor(
     addr: Address,
     pseudo: string,
     specialties: string[],
-    data: { registrationDate: bigint; reputationScore: bigint; totalAudits: number; totalExploits: number; isActive: boolean }
+    data: { registrationDate: bigint; reputationScore: bigint; totalAudits: number; totalExploits: number }
   ): Auditor {
     return {
       address: addr,
@@ -45,7 +47,6 @@ export function useAuditors() {
       totalAudits: Number(data.totalAudits),
       totalExploits: Number(data.totalExploits),
       registrationDate: Number(data.registrationDate),
-      isActive: data.isActive,
     };
   }
 
@@ -61,6 +62,8 @@ export function useAuditors() {
       setError(null);
 
       try {
+        // On récupère les deux types d'events en parallèle pour reconstruire
+        // l'état courant de chaque auditeur : inscription initiale + mises à jour
         const [registeredLogs, updatedLogs] = await Promise.all([
           publicClient!.getContractEvents({
             address: AUDIT_REGISTRY_ADDRESS,
@@ -78,7 +81,8 @@ export function useAuditors() {
           }),
         ]);
 
-        // Map adresse => { pseudo, specialties }
+        // Map adresse => { pseudo, specialties } : on part de l'inscription
+        // puis on écrase les spécialités avec la dernière mise à jour
         const metaMap = new Map<string, { pseudo: string; specialties: string[] }>();
 
         for (const log of registeredLogs) {
@@ -95,6 +99,7 @@ export function useAuditors() {
           if (!auditor) continue;
           const existing = metaMap.get(getAddress(auditor));
           if (existing) {
+            // On remplace les spécialités par la version la plus récente
             metaMap.set(getAddress(auditor), {
               ...existing,
               specialties: specialties ? [...specialties] : [],
@@ -106,13 +111,14 @@ export function useAuditors() {
 
         const addresses = [...metaMap.keys()] as Address[];
 
+        // Pour chaque auditeur, on récupère ses données de réputation en parallèle
         const results = await Promise.all(addresses.map(fetchAuditorData));
 
         if (cancelled) return;
 
         const list: Auditor[] = addresses.flatMap((addr, i) => {
           const data = results[i] as Parameters<typeof buildAuditor>[3] | null;
-          if (!data) return [];
+          if (!data) return []; // flatMap ignore les tableaux vides => filtre les erreurs
           const { pseudo, specialties } = metaMap.get(addr)!;
           return [buildAuditor(addr, pseudo, specialties, data)];
         });
@@ -126,11 +132,13 @@ export function useAuditors() {
     }
 
     load();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; }; // cleanup : évite de mettre à jour l'état si le composant est démonté
   }, [publicClient]);
 
   // ── 2. Mise à jour temps réel : nouvelle inscription ───────────────────────
 
+  // useWatchContractEvent ouvre une souscription WebSocket : onLogs est appelé
+  // automatiquement dès qu'un auditeur s'inscrit, sans rechargement de page
   useWatchContractEvent({
     address: AUDIT_REGISTRY_ADDRESS,
     abi: AUDIT_REGISTRY_ABI,
@@ -141,8 +149,7 @@ export function useAuditors() {
         if (!auditor) continue;
         const addr = getAddress(auditor);
 
-        // Ne pas dupliquer si déjà présent
-        if (auditors.some((a) => a.address === addr)) continue;
+        if (auditors.some((a) => a.address === addr)) continue; // évite les doublons
 
         const data = await fetchAuditorData(addr);
         if (!data) continue;
@@ -166,6 +173,7 @@ export function useAuditors() {
         const { auditor, specialties } = log.args;
         if (!auditor) continue;
         const addr = getAddress(auditor);
+        // On remplace les spécialités de l'auditeur concerné dans la liste existante
         setAuditors((prev) =>
           prev.map((a) =>
             a.address === addr

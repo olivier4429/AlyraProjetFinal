@@ -75,7 +75,6 @@ contract ReputationBadge is ERC721, Ownable {
         uint64 reputationScore; // max = 18,446,744,073,709,551,615 (largement suffisant pour score)
         uint32 totalAudits; // max = 4,294,967,295 (audits par auditeur)
         uint32 totalExploits; // max = 4,294,967,295 (exploits par auditeur)
-        bool isActive; //1 bit
     }
 
     /**
@@ -148,8 +147,7 @@ contract ReputationBadge is ERC721, Ownable {
             reputationScore: 0,
             registrationDate: uint120(block.timestamp),
             totalAudits: 0,
-            totalExploits: 0,
-            isActive: true
+            totalExploits: 0
         });
 
         _safeMint(auditor, tokenId);
@@ -221,9 +219,6 @@ contract ReputationBadge is ERC721, Ownable {
                                 Strings.toString(
                                     uint256(metadata.registrationDate)
                                 ),
-                                "},",
-                                '{"trait_type":"Active","value":',
-                                metadata.isActive ? "true" : "false",
                                 "}",
                                 '], "image":"',
                                 getSVG(),
@@ -239,9 +234,6 @@ contract ReputationBadge is ERC721, Ownable {
         return imageURI;
     }
 
-    function getTokenCounter() private view returns (uint256) {
-        return tokenCounter;
-    }
 
     /** @notice Retourne les données de réputation d'un auditeur par adresse */
     function getAuditorData(

@@ -12,7 +12,6 @@ export interface Auditor {
   totalAudits: number;
   totalExploits: number;
   registrationDate: number;
-  isActive: boolean;
 }
 
 export interface AuditorData {
@@ -20,5 +19,4 @@ export interface AuditorData {
   reputationScore: bigint;
   totalAudits: number;
   totalExploits: number;
-  isActive: boolean;
 }

@@ -234,7 +234,7 @@ export default function DepositPage() {
               className="w-full bg-[#1F2937] border border-[#374151] rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50"
             >
               <option value="">- Choisir un auditeur -</option>
-              {auditors.filter((a) => a.isActive && a.address.toLowerCase() !== address?.toLowerCase()).map((a) => (
+              {auditors.filter((a) => a.address.toLowerCase() !== address?.toLowerCase()).map((a) => (
                 <option key={a.address} value={a.address}>
                   {a.pseudo} - {shortenAddress(a.address)} (score {a.reputationScore})
                 </option>
