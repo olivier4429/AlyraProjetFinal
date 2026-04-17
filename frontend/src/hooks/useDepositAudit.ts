@@ -34,8 +34,7 @@ export type DepositStep =
  *   startFlow(params)  => déclenche l'approbation, puis le dépôt automatiquement après confirmation.
  */
 export function useDepositAudit() {
-  // ── Étape 1 : approbation USDC ────────────────────────────────────────────
-
+  // ── Étape 1 : approbation USDC 
   const {
     writeContract: writeApprove,
     data: approveTxHash,
@@ -76,8 +75,7 @@ export function useDepositAudit() {
     guaranteeDuration: number;
   } | null>(null);
 
-  // ── Déclenchement automatique du dépôt après approval ────────────────────
-
+  // ── Déclenchement automatique du dépôt après approval réussi
   useEffect(() => {
     if (isApproveSuccess && pendingRef.current) {
       const p = pendingRef.current;
@@ -93,7 +91,7 @@ export function useDepositAudit() {
   // ── API publique ──────────────────────────────────────────────────────────
 
   function startFlow(params: DepositParams) {
-    const amount = parseUnits(params.amountUsdc, 6);
+    const amount = parseUnits(params.amountUsdc, 6);// conversion en 6 décimales pour USDC
     const reportCID = params.reportCid;
 
     pendingRef.current = {

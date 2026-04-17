@@ -1,0 +1,50 @@
+@startuml
+title Cas passant — AuditRegistry Protocol
+
+actor Auditeur
+actor Requester
+participant "USDC" as USDC
+participant "AuditRegistry" as AR
+participant "ReputationBadge" as RB
+participant "AuditEscrow" as AE
+participant "Treasury" as T
+
+== Phase 1 : Inscription ==
+
+Auditeur -> AR : registerAuditor(pseudo, specialties)
+AR -> RB : mintNft(auditor)
+RB --> AR : tokenId
+AR --> Auditeur : emit AuditorRegistered
+
+== Phase 2 : Dépôt ==
+
+Requester -> USDC : approve(AuditRegistry, amount)
+Requester -> AR : depositAudit(auditor, contractAddr, CID, amount, guaranteeDuration)
+AR -> USDC : transferFrom(requester, AuditRegistry, amount)
+AR -> USDC : transfer(treasury, 5%)
+AR -> USDC : transfer(escrow, 95%)
+AR --> Requester : emit AuditDeposited
+
+== Phase 3 : Validation ==
+
+Auditeur -> AR : validateAudit(auditId)
+AR -> RB : incAudits(tokenId, guaranteeAmount)
+AR -> AE : lockFunds(auditId, auditor, requester, 95%)
+note right of AE : immediateAmount = 70%\nguaranteeAmount = 30%
+AR --> Auditeur : emit AuditValidated
+
+== Phase 4 : Récupération paiement immédiat ==
+
+Auditeur -> AR : claimPayment(auditId)
+AR -> AE : releasePayment(auditId, auditor)
+AE -> USDC : transfer(auditor, 70%)
+AE --> AR : emit PaymentReleased
+
+== Phase 5 : Récupération garantie (après guaranteeEnd) ==
+
+Auditeur -> AR : claimGuarantee(auditId)
+AR -> AE : releaseGuarantee(auditId, auditor)
+AE -> USDC : transfer(auditor, 30%)
+AE --> AR : emit GuaranteeReleased
+
+@enduml

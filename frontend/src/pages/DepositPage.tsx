@@ -115,6 +115,11 @@ export default function DepositPage() {
     ? (parseInt(customSeconds) || 0)
     : guaranteeDuration;
 
+
+    /**
+     * Fait les vérififcations de base sur les inputs du formulaire. Affiche les erreurs dans le state `formErrors`.
+     * @returns false si non valide, true si tout est bon. 
+     */
   function validate(): boolean {
     const errors: Record<string, string> = {};
     if (!auditor) errors.auditor = "Sélectionnez un auditeur.";
@@ -133,6 +138,9 @@ export default function DepositPage() {
     return Object.keys(errors).length === 0;
   }
 
+  /**
+   * Déclenche le flow de dépôt : approbation puis dépôt automatique après confirmation. Affiche les erreurs de validation dans le formulaire.
+   */
   function handleSubmit() {
     if (!validate() || !auditor) return;
     startFlow({

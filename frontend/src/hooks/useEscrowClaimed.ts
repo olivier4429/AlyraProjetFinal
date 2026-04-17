@@ -1,7 +1,26 @@
 import { useState, useEffect } from "react";
-import { usePublicClient, useWatchContractEvent } from "wagmi";
+import { usePublicClient, useWatchContractEvent, useReadContract } from "wagmi";
 import { AUDIT_ESCROW_ABI } from "../abi/AuditEscrow";
 import { AUDIT_ESCROW_ADDRESS, DEPLOY_BLOCK } from "../constants/contracts";
+
+/**
+ * Lit les montants exacts d'un séquestre depuis AuditEscrow.
+ * Retourne immediateAmount (70%) et guaranteeAmount (30%) tels que stockés on-chain.
+ */
+export function useEscrowInfo(auditId: bigint, enabled = true) {
+  const { data } = useReadContract({
+    address: AUDIT_ESCROW_ADDRESS,
+    abi: AUDIT_ESCROW_ABI,
+    functionName: "escrows",
+    args: [auditId],
+    query: { enabled: enabled && !!AUDIT_ESCROW_ADDRESS },
+  });
+
+  return {
+    immediateAmount: data?.[4],
+    guaranteeAmount: data?.[5],
+  };
+}
 
 /**
  * Détermine si le paiement immédiat (70%) d'un audit a été récupéré,

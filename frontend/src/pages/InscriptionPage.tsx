@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useConnection } from "wagmi";
+import type { Address } from "viem";
 import { useNavigate } from "react-router-dom";
 import type { Specialty } from "../types";
 import { SPECIALTIES } from "../constants/config";
@@ -15,7 +16,7 @@ import { useUpdateSpecialties } from "../hooks/useAuditRegistry";
 
 function AuditorProfile({ address, onNavigateHome }: { address: string; onNavigateHome: () => void }) {
   const { specialties: currentSpecialties, isLoading: isLoadingSpecialties } =
-    useAuditorSpecialties(address as `0x${string}`);
+    useAuditorSpecialties(address as Address);
   const { update, isSignaturePending, isConfirming, isSuccess, error, reset } =
     useUpdateSpecialties();
 
@@ -23,7 +24,6 @@ function AuditorProfile({ address, onNavigateHome }: { address: string; onNaviga
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  // Once loaded, initialise selected from current on-chain specialties
   useEffect(() => {
     if (!isLoadingSpecialties && currentSpecialties.length > 0 && !editing) {
       setSelected(currentSpecialties as Specialty[]);

@@ -1,4 +1,5 @@
 import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import type { Address } from "viem";
 import { AUDIT_REGISTRY_ABI } from "../abi/AuditRegistry";
 import { AUDIT_REGISTRY_ADDRESS } from "../constants/contracts";
 
@@ -122,7 +123,7 @@ export function useSetAuditedContractAddress() {
     error: receiptError,
   } = useWaitForTransactionReceipt({ hash: txHash });
 
-  const setAddress = (auditId: bigint, contractAddress: `0x${string}`) => {
+  const setAddress = (auditId: bigint, contractAddress: Address) => {
     writeContract({
       address: AUDIT_REGISTRY_ADDRESS,
       abi: AUDIT_REGISTRY_ABI,

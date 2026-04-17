@@ -30,12 +30,11 @@ export function useProtocolStats(auditors: Auditor[]): ProtocolStats {
     query: { enabled: !!AUDIT_REGISTRY_ADDRESS },
   });
 
-  // ── 1. Volume historique ──────────────────────────────────────────────────
-
+  // ── 1. On va chercher le passé
   useEffect(() => {
     if (!publicClient || !AUDIT_REGISTRY_ADDRESS) return;
 
-    // utilisation de getContractEvents pour sommer les montants depuis le déploiement.
+    // utilisation de getContractEvents pour recupérer les montants depuis le déploiement.
     // useReadContract ne peut pas être utilisé car on est dans un useEffect
     publicClient.getContractEvents({
       address: AUDIT_REGISTRY_ADDRESS,
@@ -50,9 +49,8 @@ export function useProtocolStats(auditors: Auditor[]): ProtocolStats {
     }).catch(() => {});
   }, [publicClient]);
 
-  // ── 2. Volume temps réel ──────────────────────────────────────────────────
-
-  // useWatchContractEvent ouvre une souscription WebSocket : onLogs est appelé
+  // ── 2. Hook pour aller chercher tout ce qui arrive en temps réel après le chargement initial.
+  // useWatchContractEvent ouvre une  WebSocket : onLogs est appelé
   // automatiquement à chaque nouvel audit déposé, sans rechargement de page
   useWatchContractEvent({
     address: AUDIT_REGISTRY_ADDRESS,
@@ -64,10 +62,9 @@ export function useProtocolStats(auditors: Auditor[]): ProtocolStats {
     },
   });
 
-  // ── Calculs ───────────────────────────────────────────────────────────────
-
+  // ── Calculs éxécuté à chaque changement de données setRawVolume(), auditCountRaw ou auditors.
   const auditorCount = auditors.length;
-  const auditCount = auditCountRaw !== undefined ? Number(auditCountRaw) : 0;
+  const auditCount = auditCountRaw !== undefined ? Number(auditCountRaw) : 0; //auditCountRaw !== undefined car useReadContract pourrait ne aps avoir encore retourné de données au premier rendu du composant.C'est pas grave, tout sera recalculé lorsqu'il arrivera.
 
   // exploitFreePercent : part des auditeurs n'ayant jamais subi d'exploit validé
   const exploitFreeCount = auditors.filter((a) => a.totalExploits === 0).length;
