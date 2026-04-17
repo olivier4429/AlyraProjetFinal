@@ -56,6 +56,7 @@ describe("ReputationBadge", () => {
     let auditor2: Awaited<ReturnType<typeof viem.getWalletClients>>[number];
     let stranger: Awaited<ReturnType<typeof viem.getWalletClients>>[number];
     let badge: Awaited<ReturnType<typeof viem.deployContract>>;
+    let mintHash: Hash;
 
     before(async () => {
         //initialisation des comptes
@@ -71,6 +72,19 @@ describe("ReputationBadge", () => {
             account: owner.account,
         });
     });
+
+    async function setupMinted() {
+        mintHash = await badge.write.mintNft([auditor1.account.address], {
+            account: registry.account,
+        });
+    }
+
+    async function setupWithAudit() {
+        await setupMinted();
+        await badge.write.incAudits([1n, GUARANTEE_100_USDC], {
+            account: registry.account,
+        });
+    }
 
     // =========================================================================
     // Déploiement & configuration
@@ -275,11 +289,7 @@ describe("ReputationBadge", () => {
     // =========================================================================
 
     describe("Soul-bound (_update / transferts)", () => {
-        beforeEach(async () => {
-            await badge.write.mintNft([auditor1.account.address], {
-                account: registry.account,
-            });
-        });
+        beforeEach(setupMinted);
 
         it("transferFrom revert avec Soulbound", async () => {
             await assert.rejects(
@@ -363,11 +373,7 @@ describe("ReputationBadge", () => {
     // =========================================================================
 
     describe("incAudits()", () => {
-        beforeEach(async () => {
-            await badge.write.mintNft([auditor1.account.address], {
-                account: registry.account,
-            });
-        });
+        beforeEach(setupMinted);
 
         it("totalAudits incrémenté de 1", async () => {
             await badge.write.incAudits([1n, GUARANTEE_100_USDC], {
@@ -445,14 +451,7 @@ describe("ReputationBadge", () => {
     // =========================================================================
 
     describe("incExploits()", () => {
-        beforeEach(async () => {
-            await badge.write.mintNft([auditor1.account.address], {
-                account: registry.account,
-            });
-            await badge.write.incAudits([1n, GUARANTEE_100_USDC], {
-                account: registry.account,
-            });
-        });
+        beforeEach(setupWithAudit);
 
         it("totalExploits incrémenté de 1", async () => {
             await badge.write.incExploits([1n, GUARANTEE_30_USDC], {
@@ -521,12 +520,7 @@ describe("ReputationBadge", () => {
     // =========================================================================
 
     describe("tokenURI()", () => {
-        let hash: Hash;
-        beforeEach(async () => {
-            hash =  await badge.write.mintNft([auditor1.account.address], {
-                account: registry.account,
-            });
-        });
+        beforeEach(setupMinted);
 
         it("retourne une string commençant par data:application/json;base64,", async () => {
             const uri = await badge.read.tokenURI([1n]);
@@ -561,7 +555,7 @@ describe("ReputationBadge", () => {
         it("JSON décodé : Registration Date dans le tokenURI correspond au timestamp du bloc de mint", async () => {
             const publicClient = await viem.getPublicClient();
 
-            const receipt = await publicClient.waitForTransactionReceipt({ hash });
+            const receipt = await publicClient.waitForTransactionReceipt({ hash: mintHash });
             const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
 
             const json = decodeTokenURI(await badge.read.tokenURI([1n]));

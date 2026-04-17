@@ -11,7 +11,7 @@ const { viem } = await network.connect();
 
 const AMOUNT     = parseUnits("95", 6);   // 95 USDC : montant en séquestre (après frais treasury)
 const IMMEDIATE  = (AMOUNT * 70n) / 100n; // 66.5 USDC
-const GUARANTEE  = AMOUNT - IMMEDIATE;    // 28.5 USDC  (via amount - guarantee pour éviter l'écart d'arrondi)
+const GUARANTEE  = AMOUNT - IMMEDIATE;    // 28.5 USDC  
 
 // =========================================================================
 // Suite
@@ -32,6 +32,7 @@ describe("AuditEscrow", () => {
     });
 
     beforeEach(async () => {
+        // Parce qu'on veut repartir avec des contrats frais à chaque test, on les redéploie à chaque fois dans le beforeEach.
         mockUsdc = await viem.deployContract("MockUSDC");
         escrow   = await viem.deployContract("AuditEscrow", [mockUsdc.address]);
 
@@ -45,6 +46,18 @@ describe("AuditEscrow", () => {
             account: owner.account,
         });
     });
+
+    // =========================================================================
+    // Helpers de setup
+    // =========================================================================
+
+    /** Verrouille les fonds pour l'audit 1 (simule validateAudit) */
+    async function setupLocked() {
+        await escrow.write.lockFunds(
+            [1n, auditor.account.address, requester.account.address, AMOUNT],
+            { account: registry.account }
+        );
+    }
 
     // =========================================================================
     // Déploiement
@@ -136,12 +149,7 @@ describe("AuditEscrow", () => {
     // =========================================================================
 
     describe("releasePayment()", () => {
-        beforeEach(async () => {
-            await escrow.write.lockFunds(
-                [1n, auditor.account.address, requester.account.address, AMOUNT],
-                { account: registry.account }
-            );
-        });
+        beforeEach(setupLocked);
 
         it("transfère immediateAmount (70%) à l'auditeur", async () => {
             const before = await mockUsdc.read.balanceOf([auditor.account.address]);
@@ -207,12 +215,7 @@ describe("AuditEscrow", () => {
     // =========================================================================
 
     describe("releaseGuarantee()", () => {
-        beforeEach(async () => {
-            await escrow.write.lockFunds(
-                [1n, auditor.account.address, requester.account.address, AMOUNT],
-                { account: registry.account }
-            );
-        });
+        beforeEach(setupLocked);
 
         it("transfère guaranteeAmount (30%) à l'auditeur", async () => {
             const before = await mockUsdc.read.balanceOf([auditor.account.address]);

@@ -137,6 +137,48 @@ describe("AuditRegistry", () => {
     });
 
     // =========================================================================
+    // Helpers de setup — chaque niveau s'appuie sur le précédent
+    // =========================================================================
+
+    /** Inscrit auditor1 */
+    async function setupRegistered() {
+        await registry.write.registerAuditor(
+            ["alice", ["DeFi"]],
+            { account: auditor1.account }
+        );
+    }
+
+    /** Inscrit auditor1 et dépose un audit */
+    async function setupDeposited() {
+        await setupRegistered();
+        await registry.write.depositAudit(
+            [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
+            { account: requester.account }
+        );
+    }
+
+    /** Inscrit, dépose et valide l'audit */
+    async function setupValidated() {
+        await setupDeposited();
+        await registry.write.validateAudit([1n], { account: auditor1.account });
+    }
+
+    /** Inscrit, dépose, valide et signale un exploit */
+    async function setupWithExploit() {
+        await setupValidated();
+        await registry.write.reportExploit([1n, PREUVES_CID], { account: requester.account });
+    }
+
+    /** Inscrit auditor1 et dépose un audit avec adresse(0) (contrat pas encore déployé) */
+    async function setupDepositedZeroAddress() {
+        await setupRegistered();
+        await registry.write.depositAudit(
+            [auditor1.account.address, zeroAddress, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
+            { account: requester.account }
+        );
+    }
+
+    // =========================================================================
     // Déploiement
     // =========================================================================
 
@@ -315,12 +357,7 @@ describe("AuditRegistry", () => {
     // =========================================================================
 
     describe("updateSpecialties()", () => {
-        beforeEach(async () => {
-            await registry.write.registerAuditor(
-                ["alice", ["DeFi"]],
-                { account: auditor1.account }
-            );
-        });
+        beforeEach(setupRegistered);
 
         it("mise à jour réussie : event émis avec nouvelles spécialités", async () => {
             await viem.assertions.emitWithArgs(
@@ -366,12 +403,7 @@ describe("AuditRegistry", () => {
     // =========================================================================
 
     describe("depositAudit()", () => {
-        beforeEach(async () => {
-            await registry.write.registerAuditor(
-                ["alice", ["DeFi"]],
-                { account: auditor1.account }
-            );
-        });
+        beforeEach(setupRegistered);
 
         it("dépôt réussi : statut PENDING", async () => {
             await registry.write.depositAudit(
@@ -538,16 +570,7 @@ describe("AuditRegistry", () => {
     // =========================================================================
 
     describe("validateAudit()", () => {
-        beforeEach(async () => {
-            await registry.write.registerAuditor(
-                ["alice", ["DeFi"]],
-                { account: auditor1.account }
-            );
-            await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
-                { account: requester.account }
-            );
-        });
+        beforeEach(setupDeposited);
 
         it("statut VALIDATED après validation", async () => {
             await registry.write.validateAudit([1n],
@@ -642,16 +665,7 @@ describe("AuditRegistry", () => {
     // =========================================================================
 
     describe("claimRefundAfterTimeout()", () => {
-        beforeEach(async () => {
-            await registry.write.registerAuditor(
-                ["alice", ["DeFi"]],
-                { account: auditor1.account }
-            );
-            await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
-                { account: requester.account }
-            );
-        });
+        beforeEach(setupDeposited);
 
         it("remboursement réussi après 10 jours", async () => {
             await mineTime(VALIDATION_TIMEOUT + 1n);
@@ -741,19 +755,7 @@ describe("AuditRegistry", () => {
     // =========================================================================
 
     describe("claimPayment()", () => {
-        beforeEach(async () => {
-            await registry.write.registerAuditor(
-                ["alice", ["DeFi"]],
-                { account: auditor1.account }
-            );
-            await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
-                { account: requester.account }
-            );
-            await registry.write.validateAudit([1n],
-                { account: auditor1.account }
-            );
-        });
+        beforeEach(setupValidated);
 
         it("transfère 70% à l'auditeur", async () => {
             const before = await mockUsdc.read.balanceOf([auditor1.account.address]);
@@ -799,19 +801,7 @@ describe("AuditRegistry", () => {
     // =========================================================================
 
     describe("claimGuarantee()", () => {
-        beforeEach(async () => {
-            await registry.write.registerAuditor(
-                ["alice", ["DeFi"]],
-                { account: auditor1.account }
-            );
-            await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
-                { account: requester.account }
-            );
-            await registry.write.validateAudit([1n],
-                { account: auditor1.account }
-            );
-        });
+        beforeEach(setupValidated);
 
         it("transfère 30% à l'auditeur après la période de garantie", async () => {
             await mineTime(BigInt(GUARANTEE_DURATION) + 1n);
@@ -898,19 +888,7 @@ describe("AuditRegistry", () => {
     // =========================================================================
 
     describe("reportExploit()", () => {
-        beforeEach(async () => {
-            await registry.write.registerAuditor(
-                ["alice", ["DeFi"]],
-                { account: auditor1.account }
-            );
-            await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
-                { account: requester.account }
-            );
-            await registry.write.validateAudit([1n],
-                { account: auditor1.account }
-            );
-        });
+        beforeEach(setupValidated);
 
         it("signalement réussi : incident créé dans DAOVoting", async () => {
             await registry.write.reportExploit(
@@ -991,23 +969,7 @@ describe("AuditRegistry", () => {
     // =========================================================================
 
     describe("resolveIncident()", () => {
-        beforeEach(async () => {
-            await registry.write.registerAuditor(
-                ["alice", ["DeFi"]],
-                { account: auditor1.account }
-            );
-            await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
-                { account: requester.account }
-            );
-            await registry.write.validateAudit([1n],
-                { account: auditor1.account }
-            );
-            await registry.write.reportExploit(
-                [1n, PREUVES_CID],
-                { account: requester.account }
-            );
-        });
+        beforeEach(setupWithExploit);
 
         it("exploit validé : statut CLOSED", async () => {
             const { daoClient, stop } = await impersonateDao(mockDao.address);
@@ -1083,23 +1045,7 @@ describe("AuditRegistry", () => {
     // =========================================================================
 
     describe("claimGuaranteeAfterExploit()", () => {
-        beforeEach(async () => {
-            await registry.write.registerAuditor(
-                ["alice", ["DeFi"]],
-                { account: auditor1.account }
-            );
-            await registry.write.depositAudit(
-                [auditor1.account.address, auditedContract.account.address, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
-                { account: requester.account }
-            );
-            await registry.write.validateAudit([1n],
-                { account: auditor1.account }
-            );
-            await registry.write.reportExploit(
-                [1n, PREUVES_CID],
-                { account: requester.account }
-            );
-        });
+        beforeEach(setupWithExploit);
 
         it("transfère la garantie (30%) au requester après exploit validé", async () => {
             const { daoClient, stop } = await impersonateDao(mockDao.address);
@@ -1172,17 +1118,7 @@ describe("AuditRegistry", () => {
     // =========================================================================
 
     describe("setAuditedContractAddress()", () => {
-        beforeEach(async () => {
-            await registry.write.registerAuditor(
-                ["alice", ["DeFi"]],
-                { account: auditor1.account }
-            );
-            // Dépôt avec adresse(0) : contrat pas encore déployé
-            await registry.write.depositAudit(
-                [auditor1.account.address, zeroAddress, VALID_CID, AUDIT_AMOUNT, GUARANTEE_DURATION],
-                { account: requester.account }
-            );
-        });
+        beforeEach(setupDepositedZeroAddress);
 
         it("l'auditeur peut renseigner l'adresse après déploiement", async () => {
             await registry.write.setAuditedContractAddress(
