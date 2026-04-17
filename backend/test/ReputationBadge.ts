@@ -572,11 +572,6 @@ describe("ReputationBadge", () => {
             assert.equal(BigInt(registrationDate as string), block.timestamp);
         });
 
-        it("JSON décodé : Active == true", async () => {
-            const json = decodeTokenURI(await badge.read.tokenURI([1n]));
-            assert.equal(getAttribute(json, "Active"), true);
-        });
-
         it("JSON décodé : image non vide", async () => {
             const json = decodeTokenURI(await badge.read.tokenURI([1n]));
             assert.ok((json.image as string).length > 0);

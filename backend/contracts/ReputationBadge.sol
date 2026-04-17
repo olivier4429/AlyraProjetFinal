@@ -68,11 +68,11 @@ contract ReputationBadge is ERC721, Ownable {
 
     /**
      * @notice Metatdonnées du NFT de réputation.
-     * @dev Variable packing pour passer de 5 à 1 slot de stockage (256 bits exactement).
+     * @dev Variable packing pour tenir dans un seul slot (256 bits exactement).
      */
     struct AuditorData {
         uint120 registrationDate; // max = 1.3e36 (année 4.2e21, bien suffisant)
-        uint64 reputationScore; // max = 18,446,744,073,709,551,615 (largement suffisant pour score)
+        uint72 reputationScore; // max = 4.7e21 (largement suffisant pour score)
         uint32 totalAudits; // max = 4,294,967,295 (audits par auditeur)
         uint32 totalExploits; // max = 4,294,967,295 (exploits par auditeur)
     }
@@ -257,7 +257,7 @@ contract ReputationBadge is ERC721, Ownable {
         data.totalAudits += 1;
         uint256 guaranteeInUsdc = guaranteeAmount / 1e6; // => 100 USDC
         uint256 gain = Math.log10(guaranteeInUsdc) * 10;
-        data.reputationScore = uint64(uint256(data.reputationScore) + gain);
+        data.reputationScore = uint72(uint256(data.reputationScore) + gain);
         emit MetadataUpdate(tokenId); // EIP-4906 : signaler que les metadata ont été mises à jour
     }
 
@@ -273,7 +273,7 @@ contract ReputationBadge is ERC721, Ownable {
 
         // Plancher à 0 : pas de underflow possible
         data.reputationScore = uint256(data.reputationScore) > penalty
-            ? uint64(uint256(data.reputationScore) - penalty)
+            ? uint72(uint256(data.reputationScore) - penalty)
             : 0;
         emit MetadataUpdate(tokenId); // EIP-4906 : signaler que les metadata ont été mises à jour
     }
