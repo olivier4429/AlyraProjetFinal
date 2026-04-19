@@ -5,7 +5,8 @@ import { useConnection, useReadContract } from "wagmi";
 import { useAuditors } from "../hooks/useAuditors";
 import { useDepositAudit } from "../hooks/useDepositAudit";
 import { USDC_ABI } from "../abi/MockUSDC";
-import { USDC_ADDRESS, AUDIT_REGISTRY_ADDRESS } from "../constants/contracts";
+import { AUDIT_REGISTRY_ADDRESS } from "../constants/contracts";
+import { useContractAddresses } from "../hooks/useContractAddresses";
 import Alert from "../components/ui/Alert";
 import { shortenAddress } from "../utils";
 
@@ -74,6 +75,7 @@ function StepRow({ num, label, status, txHash }: StepRowProps) {
 
 export default function DepositPage() {
   const { address, isConnected } = useConnection();
+  const { usdcAddress } = useContractAddresses();
   const { auditors, isLoading: auditorsLoading } = useAuditors();
   const { startFlow, reset, step, approveTxHash, depositTxHash, error } = useDepositAudit();
 
@@ -97,11 +99,11 @@ export default function DepositPage() {
 
   // ── USDC balance ───────────────────────────────────────────────────────────
   const { data: usdcBalance } = useReadContract({
-    address: USDC_ADDRESS,
+    address: usdcAddress,
     abi: USDC_ABI,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!USDC_ADDRESS },
+    query: { enabled: !!address && !!usdcAddress },
   });
 
   const balanceFormatted = usdcBalance !== undefined
@@ -473,7 +475,7 @@ export default function DepositPage() {
         )}
         <button
           onClick={handleSubmit}
-          disabled={isInProgress || !USDC_ADDRESS || !AUDIT_REGISTRY_ADDRESS}
+          disabled={isInProgress || !usdcAddress || !AUDIT_REGISTRY_ADDRESS}
           className="flex-1 px-6 py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/40 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
         >
           {isInProgress && (
@@ -491,9 +493,9 @@ export default function DepositPage() {
         </button>
       </div>
 
-      {!USDC_ADDRESS && (
+      {!usdcAddress && (
         <Alert variant="warn">
-          VITE_USDC_ADDRESS non défini dans .env. Relancez le script de déploiement.
+          Adresse USDC non disponible. Vérifiez que AuditRegistry est bien déployé.
         </Alert>
       )}
     </div>

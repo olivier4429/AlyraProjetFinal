@@ -1,7 +1,7 @@
 import { useReadContract } from "wagmi";
 import type { Address } from "viem";
 import { REPUTATION_BADGE_ABI } from "../abi/ReputationBadge";
-import { REPUTATION_BADGE_ADDRESS } from "../constants/contracts";
+import { useContractAddresses } from "./useContractAddresses";
 import type { AuditorData } from "../types";
 
 /**
@@ -10,14 +10,15 @@ import type { AuditorData } from "../types";
  * @param address adresse de l'auditeur à vérifier. Si aucune adresse n'est fournie, la requête ne sera pas exécutée.
  */
 export function useIsRegistered(address?: Address) {
+  const { reputationBadgeAddress } = useContractAddresses();
   // useReadContract est utilisé ici car tokenIdOf est une valeur unique : pas besoin de boucle ni de useEffect
   // query.enabled évite d'envoyer la requête si l'adresse n'est pas encore disponible (wallet non connecté)
   const { data: tokenId, isLoading } = useReadContract({
-    address: REPUTATION_BADGE_ADDRESS,
+    address: reputationBadgeAddress,
     abi: REPUTATION_BADGE_ABI,
     functionName: "tokenIdOf",
     args: address ? [address] : undefined,
-    query: { enabled: !!address }, // !! convertit en booléen : undefined => false, adresse => true
+    query: { enabled: !!address && !!reputationBadgeAddress },
   });
 
   return {
@@ -33,12 +34,13 @@ export function useIsRegistered(address?: Address) {
  * @param address adresse de l'auditeur. Si absente, la requête ne sera pas exécutée.
  */
 export function useAuditorData(address?: Address) {
+  const { reputationBadgeAddress } = useContractAddresses();
   const { data, isLoading, error } = useReadContract({
-    address: REPUTATION_BADGE_ADDRESS,
+    address: reputationBadgeAddress,
     abi: REPUTATION_BADGE_ABI,
     functionName: "getAuditorData",
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: { enabled: !!address && !!reputationBadgeAddress },
   });
 
   // Le retour de viem est un tuple non typé : on le caste explicitement

@@ -4,7 +4,8 @@ import { getAddress } from "viem";
 import type { Address } from "viem";
 import { AUDIT_REGISTRY_ABI } from "../abi/AuditRegistry";
 import { REPUTATION_BADGE_ABI } from "../abi/ReputationBadge";
-import { AUDIT_REGISTRY_ADDRESS, REPUTATION_BADGE_ADDRESS, DEPLOY_BLOCK } from "../constants/contracts";
+import { AUDIT_REGISTRY_ADDRESS, DEPLOY_BLOCK } from "../constants/contracts";
+import { useContractAddresses } from "./useContractAddresses";
 import type { Auditor, Specialty } from "../types";
 
 /**
@@ -15,6 +16,7 @@ import type { Auditor, Specialty } from "../types";
  *  2. useWatchContractEvent en temps réel => mise à jour automatique sans rechargement
  */
 export function useAuditors() {
+  const { reputationBadgeAddress } = useContractAddresses();
   const publicClient = usePublicClient();
   const [auditors, setAuditors] = useState<Auditor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -24,8 +26,9 @@ export function useAuditors() {
 
   // Récupère les données de réputation d'un auditeur depuis ReputationBadge
   async function fetchAuditorData(addr: Address) {
+    if (!reputationBadgeAddress) return null;
     return publicClient!.readContract({
-      address: REPUTATION_BADGE_ADDRESS,
+      address: reputationBadgeAddress,
       abi: REPUTATION_BADGE_ABI,
       functionName: "getAuditorData",
       args: [addr],
@@ -53,7 +56,7 @@ export function useAuditors() {
   // ── 1. Chargement historique ────────────────────────────────────────────────
 
   useEffect(() => {
-    if (!publicClient || !AUDIT_REGISTRY_ADDRESS) return;
+    if (!publicClient || !AUDIT_REGISTRY_ADDRESS || !reputationBadgeAddress) return;
 
     let cancelled = false;
 
@@ -133,7 +136,7 @@ export function useAuditors() {
 
     load();
     return () => { cancelled = true; }; // cleanup : évite de mettre à jour l'état si le composant est démonté
-  }, [publicClient]);
+  }, [publicClient, reputationBadgeAddress]);
 
   // ── 2. Mise à jour temps réel : nouvelle inscription ───────────────────────
 

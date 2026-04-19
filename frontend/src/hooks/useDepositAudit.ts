@@ -4,7 +4,8 @@ import { parseUnits } from "viem";
 import type { Address } from "viem";
 import { AUDIT_REGISTRY_ABI } from "../abi/AuditRegistry";
 import { USDC_ABI } from "../abi/MockUSDC";
-import { AUDIT_REGISTRY_ADDRESS, USDC_ADDRESS } from "../constants/contracts";
+import { AUDIT_REGISTRY_ADDRESS } from "../constants/contracts";
+import { useContractAddresses } from "./useContractAddresses";
 
 export interface DepositParams {
   auditor: Address;
@@ -34,7 +35,9 @@ export type DepositStep =
  *   startFlow(params)  => déclenche l'approbation, puis le dépôt automatiquement après confirmation.
  */
 export function useDepositAudit() {
-  // ── Étape 1 : approbation USDC 
+  const { usdcAddress } = useContractAddresses();
+
+  // ── Étape 1 : approbation USDC
   const {
     writeContract: writeApprove,
     data: approveTxHash,
@@ -103,7 +106,7 @@ export function useDepositAudit() {
     };
 
     writeApprove({
-      address: USDC_ADDRESS,
+      address: usdcAddress!,
       abi: USDC_ABI,
       functionName: "approve",
       args: [AUDIT_REGISTRY_ADDRESS, amount],

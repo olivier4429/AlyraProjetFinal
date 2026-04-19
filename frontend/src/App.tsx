@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ContractAddressesProvider } from "./contexts/ContractAddressesContext";
 import Layout from "./components/layout/Layout";
 import HomePage from "./pages/HomePage";
 import InscriptionPage from "./pages/InscriptionPage";
@@ -9,6 +10,7 @@ import ExplorerPage from "./pages/ExplorerPage";
 function App() {
   return (
     <BrowserRouter>
+      <ContractAddressesProvider>
       <Layout>
         <Routes>
           <Route path="/" element={<HomePage />} />
@@ -18,6 +20,7 @@ function App() {
           <Route path="/validation" element={<ValidationPage />} />
         </Routes>
       </Layout>
+      </ContractAddressesProvider>
     </BrowserRouter>
   );
 }

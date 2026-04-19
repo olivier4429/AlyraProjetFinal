@@ -1,19 +1,22 @@
 import { useState, useEffect } from "react";
 import { usePublicClient, useWatchContractEvent, useReadContract } from "wagmi";
 import { AUDIT_ESCROW_ABI } from "../abi/AuditEscrow";
-import { AUDIT_ESCROW_ADDRESS, DEPLOY_BLOCK } from "../constants/contracts";
+import { DEPLOY_BLOCK } from "../constants/contracts";
+import { useContractAddresses } from "./useContractAddresses";
 
 /**
  * Lit les montants exacts d'un séquestre depuis AuditEscrow.
  * Retourne immediateAmount (70%) et guaranteeAmount (30%) tels que stockés on-chain.
  */
 export function useEscrowInfo(auditId: bigint, enabled = true) {
+  const { escrowAddress } = useContractAddresses();
+
   const { data } = useReadContract({
-    address: AUDIT_ESCROW_ADDRESS,
+    address: escrowAddress,
     abi: AUDIT_ESCROW_ABI,
     functionName: "escrows",
     args: [auditId],
-    query: { enabled: enabled && !!AUDIT_ESCROW_ADDRESS },
+    query: { enabled: enabled && !!escrowAddress },
   });
 
   return {
@@ -27,11 +30,12 @@ export function useEscrowInfo(auditId: bigint, enabled = true) {
  * en se basant sur l'event PaymentReleased émis par AuditEscrow.
  */
 export function usePaymentClaimed(auditId: bigint, enabled = true) {
+  const { escrowAddress } = useContractAddresses();
   const publicClient = usePublicClient();
   const [claimed, setClaimed] = useState(false);
 
   useEffect(() => {
-    if (!publicClient || !AUDIT_ESCROW_ADDRESS || !enabled) return;
+    if (!publicClient || !escrowAddress || !enabled) return;
 
     let cancelled = false;
 
@@ -39,7 +43,7 @@ export function usePaymentClaimed(auditId: bigint, enabled = true) {
       // On cherche si un event PaymentReleased existe déjà pour cet auditId
       // Si oui, le paiement a déjà été réclamé dans le passé
       const logs = await publicClient!.getContractEvents({
-        address: AUDIT_ESCROW_ADDRESS,
+        address: escrowAddress,
         abi: AUDIT_ESCROW_ABI,
         eventName: "PaymentReleased",
         args: { auditId }, // filtre sur l'auditId pour ne pas charger tous les events
@@ -52,16 +56,16 @@ export function usePaymentClaimed(auditId: bigint, enabled = true) {
 
     load().catch(() => {});
     return () => { cancelled = true; }; // cleanup : évite de mettre à jour l'état si le composant est démonté
-  }, [publicClient, auditId, enabled]);
+  }, [publicClient, auditId, enabled, escrowAddress]);
 
   // Temps réel : écoute le moment où le paiement est réclamé
   // enabled à false une fois réclamé : inutile de continuer à écouter
   useWatchContractEvent({
-    address: AUDIT_ESCROW_ADDRESS,
+    address: escrowAddress,
     abi: AUDIT_ESCROW_ABI,
     eventName: "PaymentReleased",
     args: { auditId },
-    enabled: !claimed && enabled && !!AUDIT_ESCROW_ADDRESS,
+    enabled: !claimed && enabled && !!escrowAddress,
     onLogs: (logs) => {
       if (logs.length > 0) setClaimed(true);
     },
@@ -75,12 +79,13 @@ export function usePaymentClaimed(auditId: bigint, enabled = true) {
  * en se basant sur l'event GuaranteeReleased émis par AuditEscrow.
  */
 export function useGuaranteeClaimed(auditId: bigint, enabled = true) {
+  const { escrowAddress } = useContractAddresses();
   const publicClient = usePublicClient();
   const [claimed, setClaimed] = useState(false);
   const [claimedAmount, setClaimedAmount] = useState<bigint>(0n);
 
   useEffect(() => {
-    if (!publicClient || !AUDIT_ESCROW_ADDRESS || !enabled) return;
+    if (!publicClient || !escrowAddress || !enabled) return;
 
     let cancelled = false;
 
@@ -88,7 +93,7 @@ export function useGuaranteeClaimed(auditId: bigint, enabled = true) {
       // On cherche si un event GuaranteeReleased existe déjà pour cet auditId
       // Si oui, la garantie a déjà été réclamée dans le passé
       const logs = await publicClient!.getContractEvents({
-        address: AUDIT_ESCROW_ADDRESS,
+        address: escrowAddress,
         abi: AUDIT_ESCROW_ABI,
         eventName: "GuaranteeReleased",
         args: { auditId }, // filtre sur l'auditId pour ne pas charger tous les events
@@ -104,16 +109,16 @@ export function useGuaranteeClaimed(auditId: bigint, enabled = true) {
 
     load().catch(() => {});
     return () => { cancelled = true; }; // cleanup : évite de mettre à jour l'état si le composant est démonté
-  }, [publicClient, auditId, enabled]);
+  }, [publicClient, auditId, enabled, escrowAddress]);
 
   // Temps réel : écoute le moment où la garantie est réclamée
   // enabled à false une fois réclamée : inutile de continuer à écouter
   useWatchContractEvent({
-    address: AUDIT_ESCROW_ADDRESS,
+    address: escrowAddress,
     abi: AUDIT_ESCROW_ABI,
     eventName: "GuaranteeReleased",
     args: { auditId },
-    enabled: !claimed && enabled && !!AUDIT_ESCROW_ADDRESS,
+    enabled: !claimed && enabled && !!escrowAddress,
     onLogs: (logs) => {
       if (logs.length > 0) {
         setClaimed(true);
