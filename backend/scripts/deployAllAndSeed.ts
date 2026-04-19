@@ -111,8 +111,7 @@ console.log("📦 Déploiement des contrats...");
 // Bloc courant avant tout déploiement : utilisé par le frontend comme fromBlock
 // pour les getLogs (évite de scanner depuis le bloc genesis)
 const publicClient = await viem.getPublicClient();
-const deployBlock = await publicClient.getBlockNumber();
-console.log(`  📌 Bloc de départ  : ${deployBlock}`);
+
 
 const reputationBadge = await viem.deployContract("ReputationBadge", [
   svgContent,
@@ -151,6 +150,9 @@ const linkEscrowHash = await escrow.write.setRegistryAddress([registry.address])
 await publicClient.waitForTransactionReceipt({ hash: linkEscrowHash });
 
 console.log(`\n🔗 ReputationBadge + AuditEscrow liés à AuditRegistry`);
+
+const deployBlock = await publicClient.getBlockNumber();
+console.log(`  📌 Bloc de départ  : ${deployBlock}`);
 
 // =========================================================================
 // Inscription des auditeurs
