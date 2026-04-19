@@ -6,7 +6,7 @@ Alyra – Promotion Gladys West · Avril 2026
 ---
 
 
-AuditRegistry est un protocole décentralisé qui crée un registre on-chain des audits de smart contracts. Il met en relation des demandeurs d'audit et des auditeurs certifiés, sécurise les paiements via un escrow intégrant Aave v3 pour générer du yield, et maintient un score de réputation on-chain pour chaque auditeur via un NFT soul-bound non transférable (EIP-5192).
+AuditRegistry est un protocole décentralisé qui crée un registre on-chain des audits de smart contracts. Il met en relation des demandeurs d'audit et des auditeurs certifiés, sécurise les paiements via un escrow USDC, et maintient un score de réputation on-chain pour chaque auditeur via un NFT soul-bound non transférable (EIP-5192).
 
 ---
 
