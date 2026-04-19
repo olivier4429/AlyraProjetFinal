@@ -193,6 +193,12 @@ export default function AuditCard({
             {new Date(depositedAt * 1000).toLocaleDateString("fr-FR")}
           </span>
         </div>
+        {isPending && guaranteeDuration > 0 && (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-gray-500 uppercase tracking-wider font-semibold">Durée de garantie</span>
+            <span className="text-gray-300">{Math.round(guaranteeDuration / 86400)} jours</span>
+          </div>
+        )}
         {(isValidated || isClosed) && guaranteeEnd > 0 && (
           <div className="flex flex-col gap-0.5">
             <span className="text-gray-500 uppercase tracking-wider font-semibold">Fin de garantie</span>
