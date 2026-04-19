@@ -112,6 +112,7 @@ console.log("📦 Déploiement des contrats...");
 // pour les getLogs (évite de scanner depuis le bloc genesis)
 const publicClient = await viem.getPublicClient();
 const deployBlock = await publicClient.getBlockNumber();
+console.log(`  📌 Bloc de départ  : ${deployBlock}`);
 
 const reputationBadge = await viem.deployContract("ReputationBadge", [
   svgContent,
