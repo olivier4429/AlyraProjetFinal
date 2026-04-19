@@ -42,6 +42,33 @@ Configurer le wallet (MetaMask) sur `localhost:8545`, Chain ID `31337`.
 | `VITE_USDC_ADDRESS` | Écrit automatiquement par le script de déploiement |
 | `VITE_DEPLOY_BLOCK` | Écrit automatiquement – bloc de départ pour la lecture des events |
 
+## RPC
+
+Le RPC n'est pas configuré explicitement. Reown AppKit le résout automatiquement selon le réseau actif :
+
+- **Hardhat local** (`localhost:8545`, Chain ID `31337`) — utilisé en développement
+- **Sepolia** — Reown utilise son propre nœud RPC public associé au `VITE_REOWN_PROJECT_ID`
+
+Pour forcer un RPC dédié (Alchemy, Infura…), ajouter un `transports` dans `appkitConfig.ts` :
+
+```ts
+import { http } from "wagmi";
+
+const wagmiAdapter = new WagmiAdapter({
+  networks,
+  projectId,
+  transports: {
+    [sepolia.id]: http("https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY"),
+  },
+});
+```
+
+### Déploiement Vercel
+
+Vercel exécute `npm run build` (`tsc && vite build`) dans un environnement sans accès à un nœud local. Le RPC Sepolia de Reown est utilisé automatiquement — aucune configuration supplémentaire n'est nécessaire.
+
+Les variables d'environnement sont à renseigner dans **Settings → Environment Variables** du projet Vercel (les mêmes que le tableau ci-dessus, sans le préfixe `.env`).
+
 ## Stack
 
 Vite · React 19 · TypeScript · Wagmi v3 · Viem v2 · Reown AppKit · TailwindCSS
