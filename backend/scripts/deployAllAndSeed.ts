@@ -154,6 +154,8 @@ console.log(`\n🔗 ReputationBadge + AuditEscrow liés à AuditRegistry`);
 const deployBlock = await publicClient.getBlockNumber();
 console.log(`  📌 Bloc de départ  : ${deployBlock}`);
 
+// demo
+
 // =========================================================================
 // Inscription des auditeurs
 // =========================================================================
