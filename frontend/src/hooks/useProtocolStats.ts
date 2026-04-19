@@ -50,7 +50,7 @@ export function useProtocolStats(auditors: Auditor[]): ProtocolStats {
   }, [publicClient]);
 
   // ── 2. Hook pour aller chercher tout ce qui arrive en temps réel après le chargement initial.
-  // useWatchContractEvent ouvre une  WebSocket : onLogs est appelé
+  // useWatchContractEvent ouvre une  connexion : onLogs est appelé
   // automatiquement à chaque nouvel audit déposé, sans rechargement de page
   useWatchContractEvent({
     address: AUDIT_REGISTRY_ADDRESS,

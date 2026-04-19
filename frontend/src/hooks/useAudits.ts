@@ -112,7 +112,7 @@ export function useAudits(auditorAddress?: Address) {
     };
   }, [publicClient, auditorAddress]);
 
-  //Pour gérer le temps réel. Au chargement du composant, ce code ouvre une websocket avec le RPC.
+  //Pour gérer le temps réel. Au chargement du composant, ce code ouvre une connexion avec le RPC.
   //Tant que le composant useAudits() est monté (pages ExplorerPAge et ValidationPAge), on écoute les événements AuditDeposited. Quand un événement arrive, on appelle la fonction onLogs.
   useWatchContractEvent({
     address: AUDIT_REGISTRY_ADDRESS,

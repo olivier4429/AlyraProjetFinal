@@ -140,7 +140,7 @@ export function useAuditors() {
 
   // ── 2. Mise à jour temps réel : nouvelle inscription ───────────────────────
 
-  // useWatchContractEvent ouvre une souscription WebSocket : onLogs est appelé
+  // useWatchContractEvent ouvre une souscription connexion : onLogs est appelé
   // automatiquement dès qu'un auditeur s'inscrit, sans rechargement de page
   useWatchContractEvent({
     address: AUDIT_REGISTRY_ADDRESS,
