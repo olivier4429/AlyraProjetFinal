@@ -100,9 +100,9 @@ export default function AuditCard({
 
   const { immediateAmount: rawImmediate, guaranteeAmount: rawGuarantee } = useEscrowInfo(auditId, isValidated || isClosed);
 
-  // Montants exacts depuis le contrat, avec fallback sur le calcul approximatif
-  const immediateAmount = rawImmediate ?? (amount * 95n / 100n * 70n / 100n);
-  const guaranteeAmount = rawGuarantee ?? (amount * 95n / 100n * 30n / 100n);
+  // amount est déjà l'escrow amount (95% déduit par le contrat) — fallback sur 70%/30%
+  const immediateAmount = rawImmediate ?? (amount * 70n / 100n);
+  const guaranteeAmount = rawGuarantee ?? (amount * 30n / 100n);
 
   const now = Math.floor(Date.now() / 1000);
   const canClaimPayment = !paymentClaimed && (isValidated || isClosed);
