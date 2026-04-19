@@ -82,7 +82,6 @@ export function useGuaranteeClaimed(auditId: bigint, enabled = true) {
   const { escrowAddress } = useContractAddresses();
   const publicClient = usePublicClient();
   const [claimed, setClaimed] = useState(false);
-  const [claimedAmount, setClaimedAmount] = useState<bigint>(0n);
 
   useEffect(() => {
     if (!publicClient || !escrowAddress || !enabled) return;
@@ -103,7 +102,6 @@ export function useGuaranteeClaimed(auditId: bigint, enabled = true) {
       if (cancelled) return;
       if (logs.length > 0) {
         setClaimed(true);
-        setClaimedAmount(logs[0].args.amount ?? 0n); // on récupère le montant depuis le premier log
       }
     }
 
@@ -122,10 +120,9 @@ export function useGuaranteeClaimed(auditId: bigint, enabled = true) {
     onLogs: (logs) => {
       if (logs.length > 0) {
         setClaimed(true);
-        setClaimedAmount(logs[0].args.amount ?? 0n);
       }
     },
   });
 
-  return { claimed, claimedAmount };
+  return { claimed };
 }
