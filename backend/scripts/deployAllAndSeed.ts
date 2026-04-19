@@ -12,6 +12,7 @@
  *
  * Après exécution, les adresses et le bloc de déploiement sont automatiquement
  * écrits dans frontend/.env (variables VITE_*).
+ * pour le test
  */
 
 import "dotenv/config";
